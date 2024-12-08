@@ -260,7 +260,9 @@ async fn handle_request(
                             list_changed: false
                         }),
                         "resources": result.capabilities.resources,
-                        "tools": result.capabilities.tools
+                        "tools": Some(ToolsCapability {
+                            list_changed: true
+                        })
                     }
                 })),
                 error: None
