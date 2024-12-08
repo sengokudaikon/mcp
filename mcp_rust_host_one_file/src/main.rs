@@ -21,8 +21,8 @@ use shared_protocol_objects::{
 struct ManagedServer {
     name: String,
     process: Child,
-    stdin: ChildStdin,
-    stdout: ChildStdout,
+    stdin: Arc<Mutex<ChildStdin>>,
+    stdout: Arc<Mutex<ChildStdout>>,
     capabilities: Option<ServerCapabilities>,
     initialized: bool,
 }
@@ -54,10 +54,10 @@ impl MCPHost {
             .spawn()?;
 
         let child_stdin = child.stdin.take().expect("Failed to get stdin");
-        let stdin = ChildStdin::from_std(child_stdin)?;
+        let stdin = Arc::new(Mutex::new(ChildStdin::from_std(child_stdin)?));
 
         let stdout = child.stdout.take().expect("Failed to get stdout");
-        let stdout = ChildStdout::from_std(stdout)?;
+        let stdout = Arc::new(Mutex::new(ChildStdout::from_std(stdout)?));
 
         let server = ManagedServer {
             name: name.to_string(),
@@ -123,45 +123,55 @@ impl MCPHost {
         // Create channels for stdin/stdout communication
         let (tx, mut rx) = mpsc::channel(1);
         
-        // Clone Arc for the spawn
-        let servers = Arc::clone(&self.servers);
-        let server_name = server_name.to_string();
+        // Get the server's I/O handles
+        let (stdin, stdout) = {
+            let servers = self.servers.lock().unwrap();
+            let server = servers.get(server_name)
+                .ok_or_else(|| anyhow::anyhow!("Server not found: {}", server_name))?;
+            
+            (Arc::clone(&server.stdin), Arc::clone(&server.stdout))
+        };
 
         tokio::spawn(async move {
-            // Scope the mutex guard to release it before the await
-            let result = {
-                let mut servers = servers.lock().unwrap();
-                if let Some(server) = servers.get_mut(&server_name) {
-                    // Write request
-                    if let Err(e) = server.stdin.write_all(request_str.as_bytes()).await {
-                        tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await
-                    } else if let Err(e) = server.stdin.flush().await {
-                        tx.send(Err(anyhow::anyhow!("Failed to flush stdin: {}", e))).await
-                    } else {
-                        // Read response
-                        let mut reader = BufReader::new(&mut server.stdout);
-                        let mut response_line = String::new();
-                        
-                        match reader.read_line(&mut response_line).await {
-                            Ok(0) => tx.send(Err(anyhow::anyhow!("Server closed connection"))).await,
-                            Ok(_) => {
-                                match serde_json::from_str(&response_line) {
-                                    Ok(response) => tx.send(Ok(response)).await,
-                                    Err(e) => tx.send(Err(anyhow::anyhow!("Failed to parse response: {}", e))).await,
-                                }
+            // Write the request
+            {
+                let mut stdin_guard = stdin.lock().unwrap();
+                if let Err(e) = stdin_guard.write_all(request_str.as_bytes()).await {
+                    let _ = tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await;
+                    return Ok::<(), anyhow::Error>(());
+                }
+
+                if let Err(e) = stdin_guard.flush().await {
+                    let _ = tx.send(Err(anyhow::anyhow!("Failed to flush stdin: {}", e))).await;
+                    return Ok::<(), anyhow::Error>(());
+                }
+            } // stdin_guard is dropped here, releasing the lock
+
+            // Read response
+            let mut response_line = String::new();
+            {
+                let mut stdout_guard = stdout.lock().unwrap();
+                let mut reader = BufReader::new(&mut *stdout_guard);
+                
+                match reader.read_line(&mut response_line).await {
+                    Ok(0) => {
+                        let _ = tx.send(Err(anyhow::anyhow!("Server closed connection"))).await;
+                    }
+                    Ok(_) => {
+                        match serde_json::from_str(&response_line) {
+                            Ok(response) => { let _ = tx.send(Ok(response)).await; }
+                            Err(e) => { 
+                                let _ = tx.send(Err(anyhow::anyhow!("Failed to parse response: {}", e))).await; 
                             }
-                            Err(e) => tx.send(Err(anyhow::anyhow!("Failed to read response: {}", e))).await,
                         }
                     }
-                } else {
-                    tx.send(Err(anyhow::anyhow!("Server not found: {}", server_name))).await
+                    Err(e) => {
+                        let _ = tx.send(Err(anyhow::anyhow!("Failed to read response: {}", e))).await;
+                    }
                 }
-            };
+            } // stdout_guard is dropped here, releasing the lock
 
-            if let Err(e) = result {
-                eprintln!("Failed to send response through channel: {}", e);
-            }
-            Ok::<(), tokio::sync::mpsc::error::SendError<Result<JsonRpcResponse, anyhow::Error>>>(())
+            Ok::<(), anyhow::Error>(())
         });
 
         // Wait for response with timeout
