@@ -75,7 +75,6 @@ async fn main() {
                     "additionalProperties": false
                 }),
             },
-
             ToolInfo {
                 name: "scrape_url".into(),
                 description: Some(
