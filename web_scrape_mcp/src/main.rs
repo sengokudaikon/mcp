@@ -6,7 +6,7 @@ use shared_protocol_objects::{
     JsonRpcRequest, JsonRpcResponse,
     ListResourcesResult, ListToolsResult, ReadResourceParams,
     ResourceContent, ReadResourceResult,
-    ToolResponseContent, CallToolResult,
+    ToolResponseContent, CallToolResult, CallToolParams,
     success_response, error_response,
     LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS,
     PARSE_ERROR, INVALID_PARAMS, INTERNAL_ERROR
