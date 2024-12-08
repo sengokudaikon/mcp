@@ -1,15 +1,11 @@
 use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::ChildStdin;
-use tokio::sync::mpsc;
 use uuid::Uuid;
-use serde_json::json;
 
 
 use shared_protocol_objects::{
@@ -116,26 +112,19 @@ impl MCPHost {
     }
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
-        let servers = self.servers.lock().unwrap();
-        let server = servers.get(server_name)
+        let mut servers = self.servers.lock().unwrap();
+        let server = servers.get_mut(server_name)
             .context("Server not found")?;
 
         // Send request via stdin
         let request_str = serde_json::to_string(&request)? + "\n";
         
-        // Clone these before dropping the lock
-        let mut stdin = server.stdin.try_clone().await?;
-        let mut stdout = server.stdout.try_clone().await?;
-        
-        // Drop the lock before we do I/O
-        drop(servers);
-
-        // Send request
-        stdin.write_all(request_str.as_bytes()).await?;
-        stdin.flush().await?;
+        // Write to stdin
+        server.stdin.write_all(request_str.as_bytes()).await?;
+        server.stdin.flush().await?;
 
         // Read response from stdout
-        let mut reader = BufReader::new(&mut stdout);
+        let mut reader = BufReader::new(&mut server.stdout);
         let mut response_line = String::new();
         reader.read_line(&mut response_line).await?;
 
