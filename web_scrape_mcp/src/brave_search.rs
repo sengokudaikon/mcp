@@ -115,8 +115,7 @@ impl BraveSearchClient {
 
         if !response.status().is_success() {
             let error_text = response.text().await?;
-            println!("Error response: {}", error_text);
-            anyhow::bail!("API request failed with status {}: {}", status, error_text);
+            anyhow::bail!("API request failed with status {}", error_text);
         }
 
         // Parse the JSON response

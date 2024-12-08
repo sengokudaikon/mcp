@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "shared_protocol_objects",
+    "mcp_rust_host_one_file",
+    "web_scrape_mcp",
+]
