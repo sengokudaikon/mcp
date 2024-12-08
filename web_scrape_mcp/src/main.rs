@@ -1,4 +1,17 @@
 mod processor;
+use shared_protocol_objects::{
+    ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
+    InitializeResult, ClientCapabilities, InitializeParams,
+    JsonRpcRequest, JsonRpcResponse, JsonRpcError,
+    ListResourcesResult, ListToolsResult, ReadResourceParams,
+    ResourceContent, ReadResourceResult, CallToolParams,
+    ToolResponseContent, CallToolResult,
+    success_response, error_response,
+    LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS,
+    PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, 
+    INVALID_PARAMS, INTERNAL_ERROR
+};
+
 use processor::{OpenAIClient, Processor};
 mod process_html;
 use process_html::extract_text_from_html;
@@ -13,14 +26,6 @@ use brave_search::BraveSearchClient;
 use scraping_bee::{ScrapingBeeClient, ScrapingBeeResponse};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-// MCP Protocol versions
-
-// Standard JSON-RPC error codes
-const PARSE_ERROR: i64 = -32700;
-const INVALID_REQUEST: i64 = -32600;
-const METHOD_NOT_FOUND: i64 = -32601;
-const INVALID_PARAMS: i64 = -32602;
-const INTERNAL_ERROR: i64 = -32603;
 
 use std::sync::Arc;
 use tokio::io::stdout;
@@ -32,181 +37,6 @@ use tokio::task;
 use tokio_stream::wrappers::LinesStream;
 use tokio_stream::StreamExt;
 
-#[derive(Debug, Serialize, Clone)]
-struct ResourceInfo {
-    uri: String,
-    name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    mimeType: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<String>,
-}
-
-#[derive(Debug, Serialize, Clone)]
-struct ToolInfo {
-    name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    description: Option<String>,
-    inputSchema: Value,
-}
-
-#[derive(Debug, Serialize)]
-struct ServerResourcesCapability {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    subscribe: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    listChanged: Option<bool>,
-}
-
-#[derive(Debug, Serialize)]
-struct ServerToolsCapability {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    listChanged: Option<bool>,
-}
-
-#[derive(Debug, Serialize)]
-struct ServerCapabilities {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    experimental: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    logging: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    prompts: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    resources: Option<ServerResourcesCapability>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<ServerToolsCapability>,
-}
-
-#[derive(Debug, Serialize)]
-struct Implementation {
-    name: String,
-    version: String,
-}
-
-#[derive(Debug, Serialize)]
-struct InitializeResult {
-    protocolVersion: String,
-    capabilities: ServerCapabilities,
-    serverInfo: Implementation,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    _meta: Option<Value>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ClientCapabilities {
-    #[serde(default)]
-    experimental: Option<Value>,
-    #[serde(default)]
-    sampling: Option<Value>,
-    #[serde(default)]
-    roots: Option<Value>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ClientImplementation {
-    name: String,
-    version: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct InitializeParams {
-    protocolVersion: String,
-    capabilities: ClientCapabilities,
-    clientInfo: ClientImplementation,
-}
-
-#[derive(Debug, Deserialize)]
-struct JsonRpcRequest {
-    jsonrpc: String,
-    method: String,
-    #[serde(default)]
-    params: Value,
-    #[serde(default)]
-    id: Value,
-}
-
-#[derive(Debug, Serialize)]
-struct JsonRpcResponse {
-    jsonrpc: String,
-    id: Option<Value>, // Must be present, can be null
-    #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<JsonRpcError>,
-}
-
-#[derive(Debug, Serialize)]
-struct JsonRpcError {
-    code: i64,
-    message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    data: Option<Value>,
-}
-
-#[derive(Serialize)]
-struct ListResourcesResult {
-    resources: Vec<ResourceInfo>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    _meta: Option<Value>,
-}
-
-#[derive(Serialize)]
-struct ListToolsResult {
-    tools: Vec<ToolInfo>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    _meta: Option<Value>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ReadResourceParams {
-    uri: String,
-}
-
-#[derive(Serialize)]
-struct ResourceContent {
-    uri: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    mimeType: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    text: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    blob: Option<String>,
-}
-
-#[derive(Serialize)]
-struct ReadResourceResult {
-    contents: Vec<ResourceContent>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    _meta: Option<Value>,
-}
-
-#[derive(Deserialize)]
-struct CallToolParams {
-    name: String,
-    #[serde(default)]
-    arguments: Value,
-}
-
-#[derive(Serialize)]
-struct ToolResponseContent {
-    #[serde(rename = "type")]
-    ctype: String,
-    text: String,
-}
-
-#[derive(Serialize)]
-struct CallToolResult {
-    content: Vec<ToolResponseContent>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    isError: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    _meta: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    progress: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    total: Option<u32>,
-}
 
 #[derive(Debug)]
 struct MCPServerState {
@@ -770,24 +600,3 @@ async fn handle_request(
     }
 }
 
-fn success_response(id: Option<Value>, result: Value) -> JsonRpcResponse {
-    JsonRpcResponse {
-        jsonrpc: "2.0".into(),
-        id,
-        result: Some(result),
-        error: None,
-    }
-}
-
-fn error_response(id: Option<Value>, code: i64, message: &str) -> JsonRpcResponse {
-    JsonRpcResponse {
-        jsonrpc: "2.0".to_string(),
-        id: id.or(Some(Value::Null)), // Ensure we always have an id, even if null
-        result: None,
-        error: Some(JsonRpcError {
-            code,
-            message: message.to_string(),
-            data: None,
-        }),
-    }
-}
