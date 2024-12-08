@@ -161,10 +161,11 @@ impl MCPHost {
                         let _ = tx.send(Err(anyhow::anyhow!("Server closed connection"))).await;
                     }
                     Ok(_) => {
+                        println!("DEBUG: Received response: {}", response_line.trim());
                         match serde_json::from_str(&response_line) {
                             Ok(response) => { let _ = tx.send(Ok(response)).await; }
                             Err(e) => { 
-                                let _ = tx.send(Err(anyhow::anyhow!("Failed to parse response: {}", e))).await; 
+                                let _ = tx.send(Err(anyhow::anyhow!("Failed to parse response '{}': {}", response_line.trim(), e))).await; 
                             }
                         }
                     }
@@ -347,8 +348,14 @@ impl MCPHost {
                     };
 
                     match self.call_tool(server_name, tool_name, args_value).await {
-                        Ok(result) => println!("\nResult:\n{}\n", result),
-                        Err(e) => println!("Error: {}", e),
+                        Ok(result) => {
+                            if result.trim().is_empty() {
+                                println!("\nNo results returned");
+                            } else {
+                                println!("\nResult:\n{}\n", result);
+                            }
+                        }
+                        Err(e) => println!("Error calling tool: {}", e),
                     }
                 }
                 "quit" => break,
