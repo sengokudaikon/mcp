@@ -119,7 +119,7 @@ impl MCPHost {
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
         let request_str = serde_json::to_string(&request)? + "\n";
-
+        
         // Create channels for stdin/stdout communication
         let (tx, mut rx) = mpsc::channel(1);
         
@@ -132,20 +132,22 @@ impl MCPHost {
             (Arc::clone(&server.stdin), Arc::clone(&server.stdout))
         };
 
+        // Write request and read response in a separate task
         tokio::spawn(async move {
-            // Write the request
+            // Write request
             {
+                let request_bytes = request_str.as_bytes().to_vec(); // Clone the data
                 let mut stdin_guard = stdin.lock().unwrap();
-                if let Err(e) = stdin_guard.write_all(request_str.as_bytes()).await {
+                if let Err(e) = stdin_guard.write_all(&request_bytes).await {
                     let _ = tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await;
-                    return Ok::<(), anyhow::Error>(());
+                    return;
                 }
-
                 if let Err(e) = stdin_guard.flush().await {
                     let _ = tx.send(Err(anyhow::anyhow!("Failed to flush stdin: {}", e))).await;
-                    return Ok::<(), anyhow::Error>(());
+                    return;
                 }
-            } // stdin_guard is dropped here, releasing the lock
+                // stdin_guard is dropped here
+            }
 
             // Read response
             let mut response_line = String::new();
@@ -169,9 +171,8 @@ impl MCPHost {
                         let _ = tx.send(Err(anyhow::anyhow!("Failed to read response: {}", e))).await;
                     }
                 }
-            } // stdout_guard is dropped here, releasing the lock
-
-            Ok::<(), anyhow::Error>(())
+                // stdout_guard is dropped here
+            }
         });
 
         // Wait for response with timeout
