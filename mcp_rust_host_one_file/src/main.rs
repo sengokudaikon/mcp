@@ -120,6 +120,7 @@ impl MCPHost {
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
         let request_str = serde_json::to_string(&request)? + "\n";
+        println!("DEBUG: Sending request: {}", request_str.trim());
         
         // Create channels for stdin/stdout communication
         let (tx, mut rx) = mpsc::channel(1);
