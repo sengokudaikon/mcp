@@ -193,30 +193,33 @@ async fn handle_request(
 
     match req.method.as_str() {
         "initialize" => {
-            let params_res: Result<InitializeParams, _> = serde_json::from_value(req.params.unwrap_or(Value::Null));
-            let params = match params_res {
-                Ok(p) => p,
-                Err(e) => {
-                    return Some(error_response(
-                        id,
-                        -32602,
-                        &format!("Invalid params: {}", e),
-                    ))
-                }
+            let params = match req.params {
+                Some(p) => p,
+                None => return Some(error_response(id, -32602, "Missing params")),
             };
 
-            {
-                let mut guard = state.lock().await;
-                guard.client_capabilities = Some(params.capabilities);
-                guard.client_info = Some(params.client_info);
+            let protocol_version = params.get("protocolVersion")
+                .and_then(|v| v.as_str())
+                .unwrap_or(LATEST_PROTOCOL_VERSION);
+
+            if !SUPPORTED_PROTOCOL_VERSIONS.contains(&protocol_version) {
+                return Some(error_response(id, -32602, "Unsupported protocol version"));
             }
 
-            let protocol_version =
-                if SUPPORTED_PROTOCOL_VERSIONS.contains(&params.protocol_version.as_str()) {
-                    params.protocol_version
-                } else {
-                    LATEST_PROTOCOL_VERSION.to_string()
-                };
+            // Store client info and capabilities
+            if let Some(client_info) = params.get("clientInfo") {
+                if let Ok(info) = serde_json::from_value(client_info.clone()) {
+                    let mut guard = state.lock().await;
+                    guard.client_info = Some(info);
+                }
+            }
+
+            if let Some(capabilities) = params.get("capabilities") {
+                if let Ok(caps) = serde_json::from_value(capabilities.clone()) {
+                    let mut guard = state.lock().await;
+                    guard.client_capabilities = Some(caps);
+                }
+            }
 
             let result = InitializeResult {
                 protocol_version: protocol_version,
