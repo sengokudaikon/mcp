@@ -18,8 +18,9 @@ use shared_protocol_objects::{
 
 // Server Management Types
 #[derive(Debug)]
+#[allow(dead_code)]
 struct ManagedServer {
-    name: String,
+    name: String, 
     process: Child,
     stdin: Arc<Mutex<ChildStdin>>,
     stdout: Arc<Mutex<ChildStdout>>,

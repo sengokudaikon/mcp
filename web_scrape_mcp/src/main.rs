@@ -224,9 +224,9 @@ async fn handle_request(
                 capabilities: ServerCapabilities {
                     experimental: Some(HashMap::new()),
                     logging: Some(json!({})),
-                    prompts: Some(json!({
-                        "listChanged": false
-                    })),
+                    prompts: Some(PromptsCapability {
+                        list_changed: false
+                    }),
                     resources: Some(ResourcesCapability {
                         subscribe: false,
                         list_changed: true,
