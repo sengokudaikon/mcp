@@ -5,16 +5,15 @@ use std::io;
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{ChildStdin, ChildStdout, Command as AsyncCommand};
+use tokio::process::{ChildStdin, ChildStdout};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use uuid::Uuid;
 
 use shared_protocol_objects::{
-    ClientCapabilities, JsonRpcRequest, JsonRpcResponse, ServerCapabilities, Implementation, Tool, ToolContent,
-    LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS, ToolInfo, CallToolParams, CallToolResult,RequestId, ListToolsResult, ToolResponseContent,
-    success_response, error_response,
+    JsonRpcRequest, JsonRpcResponse, ServerCapabilities, Implementation,
+    ToolInfo, CallToolResult, RequestId, ListToolsResult
 };
 
 // Server Management Types
@@ -42,7 +41,7 @@ impl MCPHost {
                 name: "mcp-host".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
             },
-            request_timeout: std::time::Duration::from_secs(30), // Default timeout
+            request_timeout: std::time::Duration::from_secs(120), // Increased timeout for long-running operations
         })
     }
 
