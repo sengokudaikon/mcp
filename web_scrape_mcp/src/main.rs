@@ -65,7 +65,7 @@ async fn main() {
             ToolInfo {
                 name: BashExecutor::new().tool_info().name,
                 description: Some(BashExecutor::new().tool_info().description),
-                input_schema: BashExecutor::new().tool_info().input_schema,
+                input_schema: Some(BashExecutor::new().tool_info().input_schema),
             },
 
             ToolInfo {
@@ -84,7 +84,7 @@ async fn main() {
                     The tool takes a screenshot of the full webpage, processes it with OCR, and returns all visible text. \
                     Use this when you need to actually read the contents of a webpage, not just search for information.".into()
                 ),
-                input_schema: json!({
+                input_schema: Some(json!({
                     "type": "object",
                     "properties": {
                         "url": { 
@@ -93,7 +93,7 @@ async fn main() {
                         }
                     },
                     "required": ["url"]
-                }),
+                })),
             },
             ToolInfo {
                 name: "brave_search".into(),
@@ -112,7 +112,7 @@ async fn main() {
                     Use this tool first to find relevant URLs, then use scrape_url to read specific pages in detail. \
                     This tool returns a list of search results with titles, URLs, and brief descriptions.".into()
                 ),
-                input_schema: json!({
+                input_schema: Some(json!({
                     "type": "object",
                     "properties": {
                         "query": {
@@ -126,7 +126,7 @@ async fn main() {
                         }
                     },
                     "required": ["query"]
-                }),
+                })),
             }
         ],
         client_capabilities: None,
