@@ -161,7 +161,7 @@ impl MCPHost {
             if let Err(e) = result {
                 eprintln!("Failed to send response through channel: {}", e);
             }
-            Ok::<(), tokio::sync::mpsc::error::SendError<_>>(())
+            Ok::<(), tokio::sync::mpsc::error::SendError<Result<JsonRpcResponse, anyhow::Error>>>(())
         });
 
         // Wait for response with timeout
