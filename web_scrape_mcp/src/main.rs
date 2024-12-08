@@ -252,9 +252,11 @@ async fn handle_request(
                         "version": result.server_info.version
                     },
                     "capabilities": {
-                        "experimental": result.capabilities.experimental,
-                        "logging": result.capabilities.logging,
-                        "prompts": result.capabilities.prompts,
+                        "experimental": result.capabilities.experimental.unwrap_or_else(|| json!({})),
+                        "logging": result.capabilities.logging.unwrap_or_else(|| json!({})),
+                        "prompts": result.capabilities.prompts.unwrap_or_else(|| json!({
+                            "listChanged": false
+                        })),
                         "resources": result.capabilities.resources,
                         "tools": result.capabilities.tools
                     }
