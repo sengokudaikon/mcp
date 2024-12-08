@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use std::io::{self, Write};
+use std::io;
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -161,7 +161,7 @@ impl MCPHost {
             if let Err(e) = result {
                 eprintln!("Failed to send response through channel: {}", e);
             }
-            Ok(()) as Result<(), tokio::sync::mpsc::error::SendError<_>>
+            Ok::<(), tokio::sync::mpsc::error::SendError<_>>(())
         });
 
         // Wait for response with timeout
