@@ -1,0 +1,793 @@
+mod processor;
+use processor::{OpenAIClient, Processor};
+mod process_html;
+use process_html::extract_text_from_html;
+
+mod bash;
+use bash::{BashExecutor, BashParams, BashToolInfo, CommandResult};
+
+mod brave_search;
+mod scraping_bee;
+
+use brave_search::BraveSearchClient;
+use scraping_bee::{ScrapingBeeClient, ScrapingBeeResponse};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+// MCP Protocol versions
+
+// Standard JSON-RPC error codes
+const PARSE_ERROR: i64 = -32700;
+const INVALID_REQUEST: i64 = -32600;
+const METHOD_NOT_FOUND: i64 = -32601;
+const INVALID_PARAMS: i64 = -32602;
+const INTERNAL_ERROR: i64 = -32603;
+
+use std::sync::Arc;
+use tokio::io::stdout;
+use tokio::io::AsyncWriteExt;
+use tokio::io::{self, AsyncBufReadExt, BufReader};
+use tokio::sync::mpsc;
+use tokio::sync::Mutex;
+use tokio::task;
+use tokio_stream::wrappers::LinesStream;
+use tokio_stream::StreamExt;
+
+#[derive(Debug, Serialize, Clone)]
+struct ResourceInfo {
+    uri: String,
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mimeType: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct ToolInfo {
+    name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    inputSchema: Value,
+}
+
+#[derive(Debug, Serialize)]
+struct ServerResourcesCapability {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    subscribe: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    listChanged: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+struct ServerToolsCapability {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    listChanged: Option<bool>,
+}
+
+#[derive(Debug, Serialize)]
+struct ServerCapabilities {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    experimental: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    logging: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    prompts: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    resources: Option<ServerResourcesCapability>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<ServerToolsCapability>,
+}
+
+#[derive(Debug, Serialize)]
+struct Implementation {
+    name: String,
+    version: String,
+}
+
+#[derive(Debug, Serialize)]
+struct InitializeResult {
+    protocolVersion: String,
+    capabilities: ServerCapabilities,
+    serverInfo: Implementation,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    _meta: Option<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClientCapabilities {
+    #[serde(default)]
+    experimental: Option<Value>,
+    #[serde(default)]
+    sampling: Option<Value>,
+    #[serde(default)]
+    roots: Option<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ClientImplementation {
+    name: String,
+    version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct InitializeParams {
+    protocolVersion: String,
+    capabilities: ClientCapabilities,
+    clientInfo: ClientImplementation,
+}
+
+#[derive(Debug, Deserialize)]
+struct JsonRpcRequest {
+    jsonrpc: String,
+    method: String,
+    #[serde(default)]
+    params: Value,
+    #[serde(default)]
+    id: Value,
+}
+
+#[derive(Debug, Serialize)]
+struct JsonRpcResponse {
+    jsonrpc: String,
+    id: Option<Value>, // Must be present, can be null
+    #[serde(skip_serializing_if = "Option::is_none")]
+    result: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<JsonRpcError>,
+}
+
+#[derive(Debug, Serialize)]
+struct JsonRpcError {
+    code: i64,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<Value>,
+}
+
+#[derive(Serialize)]
+struct ListResourcesResult {
+    resources: Vec<ResourceInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    _meta: Option<Value>,
+}
+
+#[derive(Serialize)]
+struct ListToolsResult {
+    tools: Vec<ToolInfo>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    _meta: Option<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ReadResourceParams {
+    uri: String,
+}
+
+#[derive(Serialize)]
+struct ResourceContent {
+    uri: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mimeType: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    blob: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ReadResourceResult {
+    contents: Vec<ResourceContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    _meta: Option<Value>,
+}
+
+#[derive(Deserialize)]
+struct CallToolParams {
+    name: String,
+    #[serde(default)]
+    arguments: Value,
+}
+
+#[derive(Serialize)]
+struct ToolResponseContent {
+    #[serde(rename = "type")]
+    ctype: String,
+    text: String,
+}
+
+#[derive(Serialize)]
+struct CallToolResult {
+    content: Vec<ToolResponseContent>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    isError: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    _meta: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    progress: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total: Option<u32>,
+}
+
+#[derive(Debug)]
+struct MCPServerState {
+    resources: Vec<ResourceInfo>,
+    tools: Vec<ToolInfo>,
+    client_capabilities: Option<ClientCapabilities>,
+    client_info: Option<ClientImplementation>,
+}
+
+const LATEST_PROTOCOL_VERSION: &str = "2024-11-05";
+const SUPPORTED_PROTOCOL_VERSIONS: [&str; 2] = ["2024-11-05", "2024-10-07"];
+
+#[tokio::main]
+async fn main() {
+    // Verify required environment variables are present
+    let _ = std::env::var("SCRAPINGBEE_API_KEY")
+        .expect("SCRAPINGBEE_API_KEY environment variable must be set");
+    let _ = std::env::var("BRAVE_API_KEY").expect("BRAVE_API_KEY environment variable must be set");
+
+    let state = Arc::new(Mutex::new(MCPServerState {
+        resources: vec![ResourceInfo {
+            uri: "file:///example.txt".into(),
+            name: "Example Text File".into(),
+            mimeType: Some("text/plain".into()),
+            description: Some("An example text resource".into()),
+        }],
+        tools: vec![
+            ToolInfo {
+                name: BashExecutor::new().tool_info().name,
+                description: Some(BashExecutor::new().tool_info().description),
+                inputSchema: BashExecutor::new().tool_info().inputSchema,
+            },
+
+            ToolInfo {
+                name: "scrape_url".into(),
+                description: Some(
+                    "Use this tool when you need to read, analyze, or extract information from a webpage. \
+                    Perfect for when a user asks you to:\n\
+                    - Read and summarize an article or blog post\n\
+                    - Extract text from a documentation page\n\
+                    - Analyze the content of a product page\n\
+                    - Get information from a news site\n\
+                    - Read technical documentation\n\
+                    - Extract code examples from tutorials\n\
+                    - Get text from pages that might block normal scraping\n\
+                    - Capture text from dynamic JavaScript-rendered content\n\
+                    The tool takes a screenshot of the full webpage, processes it with OCR, and returns all visible text. \
+                    Use this when you need to actually read the contents of a webpage, not just search for information.".into()
+                ),
+                inputSchema: json!({
+                    "type": "object",
+                    "properties": {
+                        "url": { 
+                            "type": "string",
+                            "description": "The complete URL of the webpage to read and analyze"
+                        }
+                    },
+                    "required": ["url"]
+                }),
+            },
+            ToolInfo {
+                name: "brave_search".into(),
+                description: Some(
+                    "Use this tool when you need to search the internet for information. Perfect for when a user:\n\
+                    - Asks about current events or news\n\
+                    - Needs up-to-date information about a topic\n\
+                    - Wants to find specific websites or resources\n\
+                    - Needs to verify facts or claims\n\
+                    - Wants to discover articles about a subject\n\
+                    - Needs to find documentation or tutorials\n\
+                    - Wants to research products or services\n\
+                    - Needs recent information not in your training data\n\
+                    - Asks about trends or developments\n\
+                    - Wants to find discussions or forums about a topic\n\
+                    Use this tool first to find relevant URLs, then use scrape_url to read specific pages in detail. \
+                    This tool returns a list of search results with titles, URLs, and brief descriptions.".into()
+                ),
+                inputSchema: json!({
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "The search query - be specific and include relevant keywords"
+                        },
+                        "count": {
+                            "type": "number",
+                            "description": "Number of results to return (max 20). Use more results for broad research, fewer for specific queries.",
+                            "default": 10
+                        }
+                    },
+                    "required": ["query"]
+                }),
+            }
+        ],
+        client_capabilities: None,
+        client_info: None
+    }));
+
+    let (tx_out, mut rx_out) = mpsc::unbounded_channel::<JsonRpcResponse>();
+
+    let printer_handle = tokio::spawn(async move {
+        let mut out = stdout();
+        while let Some(resp) = rx_out.recv().await {
+            let serialized = serde_json::to_string(&resp).unwrap();
+            let _ = out.write_all(serialized.as_bytes()).await;
+            let _ = out.write_all(b"\n").await;
+            let _ = out.flush().await;
+        }
+    });
+
+    let stdin = io::stdin();
+    let reader = BufReader::new(stdin);
+    let lines = reader.lines();
+    let mut lines = LinesStream::new(lines);
+
+    while let Some(Ok(line)) = lines.next().await {
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        let parsed: Result<JsonRpcRequest, _> = serde_json::from_str(&line);
+        let req = match parsed {
+            Ok(req) => req,
+            Err(_) => {
+                let resp = error_response(None, PARSE_ERROR, "Parse error");
+                let _ = tx_out.send(resp);
+                continue;
+            }
+        };
+
+        let state = Arc::clone(&state);
+        let tx_out_clone = tx_out.clone();
+
+        task::spawn(async move {
+            let resp = handle_request(req, &state, tx_out_clone.clone()).await;
+            if let Some(resp) = resp {
+                let _ = tx_out_clone.send(resp);
+            }
+        });
+    }
+
+    drop(tx_out);
+    let _ = printer_handle.await;
+}
+
+async fn handle_request(
+    req: JsonRpcRequest,
+    state: &Arc<Mutex<MCPServerState>>,
+    tx_out: mpsc::UnboundedSender<JsonRpcResponse>,
+) -> Option<JsonRpcResponse> {
+    let id = if req.id.is_null() {
+        None
+    } else {
+        Some(req.id.clone())
+    };
+
+    match req.method.as_str() {
+        "initialize" => {
+            let params_res: Result<InitializeParams, _> = serde_json::from_value(req.params);
+            let params = match params_res {
+                Ok(p) => p,
+                Err(e) => {
+                    return Some(error_response(
+                        id,
+                        -32602,
+                        &format!("Invalid params: {}", e),
+                    ))
+                }
+            };
+
+            {
+                let mut guard = state.lock().await;
+                guard.client_capabilities = Some(params.capabilities);
+                guard.client_info = Some(params.clientInfo);
+            }
+
+            let protocol_version =
+                if SUPPORTED_PROTOCOL_VERSIONS.contains(&params.protocolVersion.as_str()) {
+                    params.protocolVersion
+                } else {
+                    LATEST_PROTOCOL_VERSION.to_string()
+                };
+
+            let result = InitializeResult {
+                protocolVersion: protocol_version,
+                capabilities: ServerCapabilities {
+                    experimental: None,
+                    logging: None,
+                    prompts: None,
+                    resources: Some(ServerResourcesCapability {
+                        subscribe: Some(false),
+                        listChanged: Some(true),
+                    }),
+                    tools: Some(ServerToolsCapability {
+                        listChanged: Some(true),
+                    }),
+                },
+                serverInfo: Implementation {
+                    name: "rust-mcp-server".into(),
+                    version: "1.0.0".into(),
+                },
+                _meta: None,
+            };
+            Some(success_response(id, json!(result)))
+        }
+
+        "resources/list" => {
+            let guard = state.lock().await;
+            let result = ListResourcesResult {
+                resources: guard.resources.clone(),
+                _meta: None,
+            };
+            Some(success_response(id, json!(result)))
+        }
+
+        "resources/read" => {
+            let params_res: Result<ReadResourceParams, _> = serde_json::from_value(req.params);
+            let params = match params_res {
+                Ok(p) => p,
+                Err(e) => {
+                    return Some(error_response(
+                        id,
+                        -32602,
+                        &format!("Invalid params: {}", e),
+                    ))
+                }
+            };
+
+            let guard = state.lock().await;
+            let res = guard.resources.iter().find(|r| r.uri == params.uri);
+            match res {
+                Some(r) => {
+                    let content = ResourceContent {
+                        uri: r.uri.clone(),
+                        mimeType: r.mimeType.clone(),
+                        text: Some("Example file contents.\n".into()),
+                        blob: None,
+                    };
+                    let result = ReadResourceResult {
+                        contents: vec![content],
+                        _meta: None,
+                    };
+                    Some(success_response(id, json!(result)))
+                }
+                None => Some(error_response(id, -32601, "Resource not found")),
+            }
+        }
+
+        "tools/list" => {
+            let guard = state.lock().await;
+            let result = ListToolsResult {
+                tools: guard.tools.clone(),
+                _meta: None,
+            };
+            Some(success_response(id, json!(result)))
+        }
+
+        "tools/call" => {
+            let params_res: Result<CallToolParams, _> = serde_json::from_value(req.params.clone());
+            let params = match params_res {
+                Ok(p) => p,
+                Err(e) => {
+                    return Some(error_response(
+                        id,
+                        -32602,
+                        &format!("Invalid params: {}", e),
+                    ))
+                }
+            };
+
+            let tool = {
+                let guard = state.lock().await;
+                guard.tools.iter().find(|t| t.name == params.name).cloned()
+            };
+
+            match tool {
+                Some(t) => {
+                    if t.name == "scrape_url" {
+                        // Handle scrape_url tool
+                        let url = params
+                            .arguments
+                            .get("url")
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_string();
+                        if url.is_empty() {
+                            return Some(error_response(
+                                id,
+                                -32602,
+                                "Missing required argument: url",
+                            ));
+                        }
+
+                        let scrapingbee_api_key = std::env::var("SCRAPINGBEE_API_KEY")
+                            .expect("SCRAPINGBEE_API_KEY environment variable must be set");
+                        let client = ScrapingBeeClient::new(&scrapingbee_api_key)
+                            .url(&url)
+                            .render_js(true);
+
+                        let result = client.execute().await;
+
+                        match result {
+                            Ok(ScrapingBeeResponse::Text(body)) => {
+                                // Send progress notification if requested
+                                let meta = req.params.get("_meta").clone();
+                                if let Some(meta) = meta {
+                                    if let Some(token) = meta.get("progressToken") {
+                                        let progress_notification = JsonRpcResponse {
+                                            jsonrpc: "2.0".into(),
+                                            id: None,
+                                            result: Some(json!({
+                                                "method": "notifications/progress",
+                                                "params": {
+                                                    "progressToken": token,
+                                                    "progress": 50,
+                                                    "total": 100
+                                                }
+                                            })),
+                                            error: None,
+                                        };
+                                        let _ = tx_out.send(progress_notification);
+                                    }
+                                }
+
+                                let tool_res = CallToolResult {
+                                    content: vec![ToolResponseContent {
+                                        ctype: "text".into(),
+                                        text: extract_text_from_html(&body, Some(&url)),
+                                    }],
+                                    isError: None,
+                                    _meta: None,
+                                    progress: None,
+                                    total: None,
+                                };
+                                Some(success_response(id, json!(tool_res)))
+                            }
+                            Ok(ScrapingBeeResponse::Binary(bytes)) => {
+                                // Save screenshot to temporary file
+                                let temp_filename =
+                                    format!("temp_screenshot_{}.png", uuid::Uuid::new_v4());
+                                if let Err(e) = std::fs::write(&temp_filename, &bytes) {
+                                    return Some(error_response(
+                                        id,
+                                        -32603,
+                                        &format!("Failed to write temp file: {}", e),
+                                    ));
+                                }
+
+                                // Initialize OpenAI client and processor
+                                let openai_api_key = match std::env::var("OPENAI_API_KEY") {
+                                    Ok(key) => key,
+                                    Err(_) => {
+                                        return Some(error_response(
+                                            id,
+                                            -32603,
+                                            "OPENAI_API_KEY not set",
+                                        ))
+                                    }
+                                };
+                                let openai_client = OpenAIClient::new(openai_api_key);
+                                let processor =
+                                    Processor::new(&openai_client, "metadata.json", "output");
+
+                                // Process the screenshot
+                                match processor.process_image(&temp_filename).await {
+                                    Ok(()) => {
+                                        // Read the processed output
+                                        let metadata =
+                                            match processor::Metadata::load("metadata.json") {
+                                                Ok(m) => m,
+                                                Err(e) => {
+                                                    return Some(error_response(
+                                                        id,
+                                                        -32603,
+                                                        &format!("Failed to load metadata: {}", e),
+                                                    ))
+                                                }
+                                            };
+                                        if let Some(img_meta) = metadata.images.last() {
+                                            if let Some(output_file) = &img_meta.output_file {
+                                                let processed_text =
+                                                    match std::fs::read_to_string(output_file) {
+                                                        Ok(text) => text,
+                                                        Err(e) => {
+                                                            return Some(error_response(
+                                                                id,
+                                                                -32603,
+                                                                &format!(
+                                                                "Failed to read output file: {}",
+                                                                e
+                                                            ),
+                                                            ))
+                                                        }
+                                                    };
+                                                let tool_res = CallToolResult {
+                                                    content: vec![ToolResponseContent {
+                                                        ctype: "text".into(),
+                                                        text: processed_text,
+                                                    }],
+                                                    isError: None,
+                                                    _meta: None,
+                                                    progress: None,
+                                                    total: None,
+                                                };
+                                                // Clean up temp file
+                                                let _ = std::fs::remove_file(&temp_filename);
+                                                Some(success_response(id, json!(tool_res)))
+                                            } else {
+                                                Some(error_response(
+                                                    id,
+                                                    -32603,
+                                                    "No output file generated",
+                                                ))
+                                            }
+                                        } else {
+                                            Some(error_response(
+                                                id,
+                                                -32603,
+                                                "No metadata entry found",
+                                            ))
+                                        }
+                                    }
+                                    Err(e) => {
+                                        let _ = std::fs::remove_file(&temp_filename);
+                                        Some(error_response(
+                                            id,
+                                            -32603,
+                                            &format!("Failed to process image: {}", e),
+                                        ))
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                let tool_res = CallToolResult {
+                                    content: vec![ToolResponseContent {
+                                        ctype: "text".into(),
+                                        text: format!("Error: {}", e),
+                                    }],
+                                    isError: Some(true),
+                                    _meta: None,
+                                    progress: None,
+                                    total: None,
+                                };
+                                Some(success_response(id, json!(tool_res)))
+                            }
+                        }
+                    } else if t.name == "bash" {
+                        // Parse bash params
+                        let bash_params: BashParams = match serde_json::from_value(params.arguments)
+                        {
+                            Ok(p) => p,
+                            Err(e) => {
+                                return Some(error_response(id, INVALID_PARAMS, &e.to_string()))
+                            }
+                        };
+
+                        let executor = BashExecutor::new();
+
+                        // Execute command
+                        match executor.execute(bash_params).await {
+                            Ok(result) => {
+                                let tool_res = CallToolResult {
+                                content: vec![ToolResponseContent {
+                                    ctype: "text".into(),
+                                    text: format!(
+                                        "Command completed with status {}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}", 
+                                        result.status,
+                                        result.stdout,
+                                        result.stderr
+                                    ),
+                                }],
+                                isError: Some(!result.success),
+                                _meta: None,
+                                progress: None,
+                                total: None,
+                            };
+                                Some(success_response(id, json!(tool_res)))
+                            }
+                            Err(e) => Some(error_response(id, INTERNAL_ERROR, &e.to_string())),
+                        }
+                    } else if t.name == "brave_search" {
+                        let query = match params.arguments.get("query").and_then(Value::as_str) {
+                            Some(q) => q.to_string(),
+                            None => {
+                                return Some(error_response(
+                                    id,
+                                    -32602,
+                                    "Missing required argument: query",
+                                ))
+                            }
+                        };
+
+                        let count = params
+                            .arguments
+                            .get("count")
+                            .and_then(Value::as_u64)
+                            .unwrap_or(10)
+                            .min(20) as u8;
+
+                        let brave_search_api_key = std::env::var("BRAVE_API_KEY")
+                            .expect("BRAVE_API_KEY environment variable must be set");
+                        let client = BraveSearchClient::new(brave_search_api_key);
+                        match client.search(&query).await {
+                            Ok(response) => {
+                                let results = match response.web {
+                                    Some(web) => web
+                                        .results
+                                        .iter()
+                                        .take(count as usize)
+                                        .map(|result| {
+                                            format!(
+                                                "Title: {}\nURL: {}\nDescription: {}\n\n",
+                                                result.title,
+                                                result.url,
+                                                result
+                                                    .description
+                                                    .as_deref()
+                                                    .unwrap_or("No description available")
+                                            )
+                                        })
+                                        .collect::<Vec<_>>()
+                                        .join("---\n"),
+                                    None => "No web results found".to_string(),
+                                };
+
+                                let tool_res = CallToolResult {
+                                    content: vec![ToolResponseContent {
+                                        ctype: "text".into(),
+                                        text: results,
+                                    }],
+                                    isError: None,
+                                    _meta: None,
+                                    progress: None,
+                                    total: None,
+                                };
+                                Some(success_response(id, json!(tool_res)))
+                            }
+                            Err(e) => {
+                                let tool_res = CallToolResult {
+                                    content: vec![ToolResponseContent {
+                                        ctype: "text".into(),
+                                        text: format!("Search error: {}", e),
+                                    }],
+                                    isError: Some(true),
+                                    _meta: None,
+                                    progress: None,
+                                    total: None,
+                                };
+                                Some(success_response(id, json!(tool_res)))
+                            }
+                        }
+                    } else {
+                        Some(error_response(id, -32601, "Tool not implemented"))
+                    }
+                }
+                None => Some(error_response(id, -32601, "Tool not found")),
+            }
+        }
+
+        _ => Some(error_response(id, -32601, "Method not found")),
+    }
+}
+
+fn success_response(id: Option<Value>, result: Value) -> JsonRpcResponse {
+    JsonRpcResponse {
+        jsonrpc: "2.0".into(),
+        id,
+        result: Some(result),
+        error: None,
+    }
+}
+
+fn error_response(id: Option<Value>, code: i64, message: &str) -> JsonRpcResponse {
+    JsonRpcResponse {
+        jsonrpc: "2.0".to_string(),
+        id: id.or(Some(Value::Null)), // Ensure we always have an id, even if null
+        result: None,
+        error: Some(JsonRpcError {
+            code,
+            message: message.to_string(),
+            data: None,
+        }),
+    }
+}
