@@ -6,12 +6,14 @@ use shared_protocol_objects::{
     JsonRpcRequest, JsonRpcResponse, JsonRpcError,
     ListResourcesResult, ListToolsResult, ReadResourceParams,
     ResourceContent, ReadResourceResult, CallToolParams,
-    ToolResponseContent, CallToolResult,
+    ToolResponseContent, CallToolResult, PromptsCapability,
     success_response, error_response,
     LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS,
     PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, 
     INVALID_PARAMS, INTERNAL_ERROR
 };
+
+use std::collections::HashMap;
 
 use processor::{OpenAIClient, Processor};
 mod process_html;
