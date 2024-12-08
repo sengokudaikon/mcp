@@ -225,7 +225,7 @@ pub struct CallToolResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResponseContent {
     #[serde(rename = "type")]
-    pub ctype: String,
+    pub type_: String,
     pub text: String,
 }
 

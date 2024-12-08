@@ -249,21 +249,15 @@ async fn handle_request(
                 id,
                 result: Some(json!({
                     "protocolVersion": result.protocol_version,
-                    "serverInfo": {
-                        "name": result.server_info.name,
-                        "version": result.server_info.version
-                    },
+                    "serverInfo": result.server_info,
                     "capabilities": {
-                        "experimental": result.capabilities.experimental.unwrap_or_else(|| HashMap::new()),
-                        "logging": result.capabilities.logging.unwrap_or(json!({})),
-                        "prompts": result.capabilities.prompts.unwrap_or(PromptsCapability {
-                            list_changed: false
-                        }),
+                        "experimental": result.capabilities.experimental,
+                        "logging": result.capabilities.logging,
+                        "prompts": result.capabilities.prompts,
                         "resources": result.capabilities.resources,
-                        "tools": Some(ToolsCapability {
-                            list_changed: true
-                        })
-                    }
+                        "tools": result.capabilities.tools
+                    },
+                    "_meta": result._meta
                 })),
                 error: None
             })
@@ -393,7 +387,7 @@ async fn handle_request(
 
                                 let tool_res = CallToolResult {
                                     content: vec![ToolResponseContent {
-                                        ctype: "text".into(),
+                                        type_: "text".into(),
                                         text: extract_text_from_html(&body, Some(&url)),
                                     }],
                                     is_error: None,
