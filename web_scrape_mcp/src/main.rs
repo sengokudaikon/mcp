@@ -2,7 +2,7 @@ mod processor;
 use shared_protocol_objects::{
     ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
     InitializeResult, ClientCapabilities,
-    ResourcesCapability, ToolsCapability,
+    ResourcesCapability, ToolsCapability, PromptsCapability,
     JsonRpcRequest, JsonRpcResponse,
     ListResourcesResult, ListToolsResult, ReadResourceParams,
     ResourceContent, ReadResourceResult,
