@@ -24,6 +24,7 @@ mod scraping_bee;
 use brave_search::BraveSearchClient;
 use scraping_bee::{ScrapingBeeClient, ScrapingBeeResponse};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 
 use std::sync::Arc;
 use tokio::io::stdout;
@@ -221,9 +222,11 @@ async fn handle_request(
             let result = InitializeResult {
                 protocol_version: protocol_version.to_string(),
                 capabilities: ServerCapabilities {
-                    experimental: None,
-                    logging: None,
-                    prompts: None,
+                    experimental: Some(HashMap::new()),
+                    logging: Some(json!({})),
+                    prompts: Some(json!({
+                        "listChanged": false
+                    })),
                     resources: Some(ResourcesCapability {
                         subscribe: false,
                         list_changed: true,
