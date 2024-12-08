@@ -1,33 +1,29 @@
 mod processor;
 use shared_protocol_objects::{
     ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
-    InitializeResult, ClientCapabilities, InitializeParams,
+    InitializeResult, ClientCapabilities,
     ResourcesCapability, ToolsCapability,
-    JsonRpcRequest, JsonRpcResponse, JsonRpcError,
+    JsonRpcRequest, JsonRpcResponse,
     ListResourcesResult, ListToolsResult, ReadResourceParams,
-    ResourceContent, ReadResourceResult, CallToolParams,
-    ToolResponseContent, CallToolResult, PromptsCapability,
+    ResourceContent, ReadResourceResult,
+    ToolResponseContent, CallToolResult,
     success_response, error_response,
     LATEST_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS,
-    PARSE_ERROR, INVALID_REQUEST, METHOD_NOT_FOUND, 
-    INVALID_PARAMS, INTERNAL_ERROR
+    PARSE_ERROR, INVALID_PARAMS, INTERNAL_ERROR
 };
-
-use std::collections::HashMap;
 
 use processor::{OpenAIClient, Processor};
 mod process_html;
 use process_html::extract_text_from_html;
 
 mod bash;
-use bash::{BashExecutor, BashParams, BashToolInfo, CommandResult};
+use bash::{BashExecutor, BashParams};
 
 mod brave_search;
 mod scraping_bee;
 
 use brave_search::BraveSearchClient;
 use scraping_bee::{ScrapingBeeClient, ScrapingBeeResponse};
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use std::sync::Arc;
@@ -457,7 +453,7 @@ async fn handle_request(
                                                     };
                                                 let tool_res = CallToolResult {
                                                     content: vec![ToolResponseContent {
-                                                        ctype: "text".into(),
+                                                        type_: "text".into(),
                                                         text: processed_text,
                                                     }],
                                                     is_error: None,
@@ -496,7 +492,7 @@ async fn handle_request(
                             Err(e) => {
                                 let tool_res = CallToolResult {
                                     content: vec![ToolResponseContent {
-                                        ctype: "text".into(),
+                                        type_: "text".into(),
                                         text: format!("Error: {}", e),
                                     }],
                                     is_error: Some(true),
@@ -524,7 +520,7 @@ async fn handle_request(
                             Ok(result) => {
                                 let tool_res = CallToolResult {
                                 content: vec![ToolResponseContent {
-                                    ctype: "text".into(),
+                                    type_: "text".into(),
                                     text: format!(
                                         "Command completed with status {}\n\nSTDOUT:\n{}\n\nSTDERR:\n{}", 
                                         result.status,
@@ -588,7 +584,7 @@ async fn handle_request(
 
                                 let tool_res = CallToolResult {
                                     content: vec![ToolResponseContent {
-                                        ctype: "text".into(),
+                                        type_: "text".into(),
                                         text: results,
                                     }],
                                     is_error: None,
@@ -601,7 +597,7 @@ async fn handle_request(
                             Err(e) => {
                                 let tool_res = CallToolResult {
                                     content: vec![ToolResponseContent {
-                                        ctype: "text".into(),
+                                        type_: "text".into(),
                                         text: format!("Search error: {}", e),
                                     }],
                                     is_error: Some(true),

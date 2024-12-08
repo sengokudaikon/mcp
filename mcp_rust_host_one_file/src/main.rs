@@ -217,13 +217,13 @@ impl MCPHost {
         for content in result.content {
             match content {
                 content => {
-                    match content.ctype.as_str() {
+                    match content.type_.as_str() {
                         "text" => {
                             output.push_str(&content.text);
                             output.push('\n');
                         }
                         _ => {
-                            output.push_str(&format!("Unknown content type: {}\n", content.ctype));
+                            output.push_str(&format!("Unknown content type: {}\n", content.type_));
                         }
                     }
                 }

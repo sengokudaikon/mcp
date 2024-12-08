@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, ACCEPT_ENCODING};
+use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use anyhow::Result;
 
 #[derive(Debug, Deserialize)]
