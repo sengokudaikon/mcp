@@ -179,8 +179,6 @@ pub struct ListResourcesResult {
     pub _meta: Option<Value>,
 }
 
-/// Tool types
-#[derive(Debug, Clone, Serialize, Deserialize)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolInfo {
     pub name: String,
