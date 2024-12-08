@@ -252,11 +252,11 @@ async fn handle_request(
                         "version": result.server_info.version
                     },
                     "capabilities": {
-                        "experimental": result.capabilities.experimental.unwrap_or_else(|| json!({})),
-                        "logging": result.capabilities.logging.unwrap_or_else(|| json!({})),
-                        "prompts": result.capabilities.prompts.unwrap_or_else(|| json!({
-                            "listChanged": false
-                        })),
+                        "experimental": result.capabilities.experimental.unwrap_or_else(|| HashMap::new()),
+                        "logging": result.capabilities.logging.unwrap_or(json!({})),
+                        "prompts": result.capabilities.prompts.unwrap_or(PromptsCapability {
+                            list_changed: false
+                        }),
                         "resources": result.capabilities.resources,
                         "tools": result.capabilities.tools
                     }
