@@ -63,7 +63,16 @@ async fn main() {
             ToolInfo {
                 name: BashExecutor::new().tool_info().name,
                 description: Some(BashExecutor::new().tool_info().description),
-                input_schema: Some(BashExecutor::new().tool_info().input_schema),
+                input_schema: Some(json!({
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The bash command to execute"
+                        }
+                    },
+                    "required": ["command"]
+                })),
             },
 
             ToolInfo {
@@ -90,7 +99,8 @@ async fn main() {
                             "description": "The complete URL of the webpage to read and analyze"
                         }
                     },
-                    "required": ["url"]
+                    "required": ["url"],
+                    "additionalProperties": false
                 })),
             },
             ToolInfo {
@@ -120,10 +130,13 @@ async fn main() {
                         "count": {
                             "type": "number",
                             "description": "Number of results to return (max 20). Use more results for broad research, fewer for specific queries.",
-                            "default": 10
+                            "default": 10,
+                            "minimum": 1,
+                            "maximum": 20
                         }
                     },
-                    "required": ["query"]
+                    "required": ["query"],
+                    "additionalProperties": false
                 })),
             }
         ],
