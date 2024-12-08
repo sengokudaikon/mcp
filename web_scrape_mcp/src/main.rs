@@ -239,17 +239,22 @@ async fn handle_request(
                 _meta: None,
             };
 
-            Some(success_response(id, json!({
-                "protocolVersion": result.protocol_version,
-                "serverInfo": result.server_info,
-                "capabilities": {
-                    "experimental": result.capabilities.experimental,
-                    "logging": result.capabilities.logging,
-                    "prompts": result.capabilities.prompts,
-                    "resources": result.capabilities.resources,
-                    "tools": result.capabilities.tools
-                }
-            })))
+            Some(JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id,
+                result: Some(json!({
+                    "protocolVersion": result.protocol_version,
+                    "serverInfo": result.server_info,
+                    "capabilities": {
+                        "experimental": result.capabilities.experimental,
+                        "logging": result.capabilities.logging,
+                        "prompts": result.capabilities.prompts,
+                        "resources": result.capabilities.resources,
+                        "tools": result.capabilities.tools
+                    }
+                })),
+                error: None
+            })
         }
 
         "resources/list" => {
