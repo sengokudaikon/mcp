@@ -53,7 +53,8 @@ impl MCPHost {
             .stderr(Stdio::piped())
             .spawn()?;
 
-        let stdin = tokio::process::ChildStdin::from_std(stdin)?;
+        let child_stdin = child.stdin.take().expect("Failed to get stdin");
+        let stdin = tokio::process::ChildStdin::from_std(child_stdin)?;
 
         let stdout = child.stdout.take().expect("Failed to get stdout");
 
@@ -116,8 +117,9 @@ impl MCPHost {
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
         let server = {
-            let mut servers = self.servers.lock().unwrap();
-            servers.get_mut(server_name).context("Server not found")?
+            self.servers.lock().unwrap()
+                .get_mut(server_name)
+                .context("Server not found")?
         };
     
         // Send request via stdin
@@ -163,15 +165,15 @@ impl MCPHost {
         let mut output = String::new();
         for content in result.content {
             match content {
-                ToolResponseContent::Text { text } => {
-                    output.push_str(&text);
-                    output.push('\n');
-                }
-                ToolResponseContent::Resource { resource } => {
-                    output.push_str(&format!("Resource: {}\n", resource.uri));
-                    if let Some(text) = resource.text {
-                        output.push_str(&text);
-                        output.push('\n');
+                content => {
+                    match content.ctype.as_str() {
+                        "text" => {
+                            output.push_str(&content.text);
+                            output.push('\n');
+                        }
+                        _ => {
+                            output.push_str(&format!("Unknown content type: {}\n", content.ctype));
+                        }
                     }
                 }
             }
@@ -256,7 +258,7 @@ impl MCPHost {
                             println!("\nAvailable tools for {}:", args[1]);
                             for tool in tools {
                                 println!("  {} - {}", tool.name, tool.description.unwrap_or_default());
-                                if let Some(schema) = tool.inputSchema {
+                                if let Some(schema) = serde_json::to_string_pretty(&tool.input_schema).ok() {
                                     println!("    Arguments: {}", serde_json::to_string_pretty(&schema)?);
                                 }
                             }

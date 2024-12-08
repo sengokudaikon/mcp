@@ -124,16 +124,16 @@ pub struct ToolsCapability {
 /// Initialize types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitializeParams {
-    pub protocolVersion: String,
+    pub protocol_version: String,
     pub capabilities: ClientCapabilities,
-    pub clientInfo: Implementation,
+    pub client_info: Implementation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InitializeResult {
-    pub protocolVersion: String,
+    pub protocol_version: String,
     pub capabilities: ServerCapabilities,
-    pub serverInfo: Implementation,
+    pub server_info: Implementation,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _meta: Option<Value>,
 }
@@ -144,7 +144,7 @@ pub struct ResourceInfo {
     pub uri: String,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mimeType: Option<String>,
+    pub mime_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
@@ -153,7 +153,7 @@ pub struct ResourceInfo {
 pub struct ResourceContent {
     pub uri: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mimeType: Option<String>,
+    pub mime_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -185,7 +185,7 @@ pub struct ToolInfo {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub inputSchema: Value,
+    pub input_schema: Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -213,7 +213,7 @@ pub struct CallToolParams {
 pub struct CallToolResult {
     pub content: Vec<ToolResponseContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub isError: Option<bool>,
+    pub is_error: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub _meta: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
