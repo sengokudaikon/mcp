@@ -118,61 +118,55 @@ impl MCPHost {
     }
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
-        // Note: We take and immediately release the lock here to ensure the server exists
-        {
-            let servers = self.servers.lock().unwrap();
-            let _server = servers.get(server_name).context("Server not found")?;
-        }
-
         let request_str = serde_json::to_string(&request)? + "\n";
 
-        let (response_tx, mut response_rx) = mpsc::channel(1);
+        // Create channels for stdin/stdout communication
+        let (tx, mut rx) = mpsc::channel(1);
+        
+        // Clone Arc for the spawn
+        let servers = Arc::clone(&self.servers);
+        let server_name = server_name.to_string();
 
-        // Spawn a task to handle the request/response
-        let servers_clone = self.servers.clone();
-        let server_name_clone = server_name.to_string();
         tokio::spawn(async move {
-            let mut servers = servers_clone.lock().unwrap();
-            if let Some(server) = servers.get_mut(&server_name_clone) {
-                // Write to stdin
-                if let Err(e) = server.stdin.write_all(request_str.as_bytes()).await {
-                    let _ = response_tx.send(Err(anyhow::anyhow!("Failed to write to server stdin: {}", e)));
-                    return;
-                }
-                if let Err(e) = server.stdin.flush().await {
-                    let _ = response_tx.send(Err(anyhow::anyhow!("Failed to flush server stdin: {}", e)));
-                    return;
-                }
+            // Scope the mutex guard to release it before the await
+            let result = {
+                let mut servers = servers.lock().unwrap();
+                if let Some(server) = servers.get_mut(&server_name) {
+                    // Write request
+                    if let Err(e) = server.stdin.write_all(request_str.as_bytes()).await {
+                        return tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await;
+                    }
+                    if let Err(e) = server.stdin.flush().await {
+                        return tx.send(Err(anyhow::anyhow!("Failed to flush stdin: {}", e))).await;
+                    }
 
-                // Read response from stdout
-                let mut reader = BufReader::new(&mut server.stdout);
-                let mut response_line = String::new();
-                match reader.read_line(&mut response_line).await {
-                    Ok(0) => {
-                        let _ = response_tx.send(Err(anyhow::anyhow!("Server closed connection")));
-                    },
-                    Ok(_) => {
-                        match serde_json::from_str(&response_line) {
-                            Ok(response) => {
-                                let _ = response_tx.send(Ok(response));
-                            },
-                            Err(e) => {
-                                let _ = response_tx.send(Err(anyhow::anyhow!("Failed to parse server response: {}", e)));
+                    // Read response
+                    let mut reader = BufReader::new(&mut server.stdout);
+                    let mut response_line = String::new();
+                    
+                    match reader.read_line(&mut response_line).await {
+                        Ok(0) => tx.send(Err(anyhow::anyhow!("Server closed connection"))).await,
+                        Ok(_) => {
+                            match serde_json::from_str(&response_line) {
+                                Ok(response) => tx.send(Ok(response)).await,
+                                Err(e) => tx.send(Err(anyhow::anyhow!("Failed to parse response: {}", e))).await,
                             }
                         }
-                    },
-                    Err(e) => {
-                        let _ = response_tx.send(Err(anyhow::anyhow!("Failed to read from server: {}", e)));
+                        Err(e) => tx.send(Err(anyhow::anyhow!("Failed to read response: {}", e))).await,
                     }
+                } else {
+                    tx.send(Err(anyhow::anyhow!("Server not found: {}", server_name))).await
                 }
-            } else {
-                let _ = response_tx.send(Err(anyhow::anyhow!("Server not found: {}", server_name_clone)));
+            };
+
+            if let Err(e) = result {
+                eprintln!("Failed to send response through channel: {}", e);
             }
         });
 
-        // Wait for the response with timeout
-        match timeout(self.request_timeout, response_rx.recv()).await {
-            Ok(Some(response)) => response,
+        // Wait for response with timeout
+        match timeout(self.request_timeout, rx.recv()).await {
+            Ok(Some(result)) => result,
             Ok(None) => Err(anyhow::anyhow!("Response channel closed")),
             Err(_) => Err(anyhow::anyhow!("Request timed out")),
         }
