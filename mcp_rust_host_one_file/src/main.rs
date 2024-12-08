@@ -134,25 +134,24 @@ impl MCPHost {
                 if let Some(server) = servers.get_mut(&server_name) {
                     // Write request
                     if let Err(e) = server.stdin.write_all(request_str.as_bytes()).await {
-                        return tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await;
-                    }
-                    if let Err(e) = server.stdin.flush().await {
-                        return tx.send(Err(anyhow::anyhow!("Failed to flush stdin: {}", e))).await;
-                    }
-
-                    // Read response
-                    let mut reader = BufReader::new(&mut server.stdout);
-                    let mut response_line = String::new();
-                    
-                    match reader.read_line(&mut response_line).await {
-                        Ok(0) => tx.send(Err(anyhow::anyhow!("Server closed connection"))).await,
-                        Ok(_) => {
-                            match serde_json::from_str(&response_line) {
-                                Ok(response) => tx.send(Ok(response)).await,
-                                Err(e) => tx.send(Err(anyhow::anyhow!("Failed to parse response: {}", e))).await,
+                        tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await
+                    } else if let Err(e) = server.stdin.flush().await {
+                        tx.send(Err(anyhow::anyhow!("Failed to flush stdin: {}", e))).await
+                    } else {
+                        // Read response
+                        let mut reader = BufReader::new(&mut server.stdout);
+                        let mut response_line = String::new();
+                        
+                        match reader.read_line(&mut response_line).await {
+                            Ok(0) => tx.send(Err(anyhow::anyhow!("Server closed connection"))).await,
+                            Ok(_) => {
+                                match serde_json::from_str(&response_line) {
+                                    Ok(response) => tx.send(Ok(response)).await,
+                                    Err(e) => tx.send(Err(anyhow::anyhow!("Failed to parse response: {}", e))).await,
+                                }
                             }
+                            Err(e) => tx.send(Err(anyhow::anyhow!("Failed to read response: {}", e))).await,
                         }
-                        Err(e) => tx.send(Err(anyhow::anyhow!("Failed to read response: {}", e))).await,
                     }
                 } else {
                     tx.send(Err(anyhow::anyhow!("Server not found: {}", server_name))).await
@@ -162,6 +161,7 @@ impl MCPHost {
             if let Err(e) = result {
                 eprintln!("Failed to send response through channel: {}", e);
             }
+            Ok(()) as Result<(), tokio::sync::mpsc::error::SendError<_>>
         });
 
         // Wait for response with timeout
