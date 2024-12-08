@@ -242,23 +242,23 @@ async fn handle_request(
                 _meta: None,
             };
 
-            // Ensure required fields are present in response
-            let response = json!({
-                "jsonrpc": "2.0",
-                "id": id,
-                "result": {
+            Some(JsonRpcResponse {
+                jsonrpc: "2.0".to_string(),
+                id,
+                result: Some(json!({
                     "protocolVersion": result.protocol_version,
                     "serverInfo": {
                         "name": result.server_info.name,
                         "version": result.server_info.version
                     },
-                    "capabilities": result.capabilities
-                }
-            });
-            Some(JsonRpcResponse {
-                jsonrpc: "2.0".to_string(),
-                id,
-                result: Some(response),
+                    "capabilities": {
+                        "experimental": result.capabilities.experimental,
+                        "logging": result.capabilities.logging,
+                        "prompts": result.capabilities.prompts,
+                        "resources": result.capabilities.resources,
+                        "tools": result.capabilities.tools
+                    }
+                })),
                 error: None
             })
         }
