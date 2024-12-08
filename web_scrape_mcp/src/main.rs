@@ -222,7 +222,7 @@ async fn handle_request(
             }
 
             let result = InitializeResult {
-                protocol_version: protocol_version,
+                protocol_version: protocol_version.to_string(),
                 capabilities: ServerCapabilities {
                     experimental: None,
                     logging: None,
