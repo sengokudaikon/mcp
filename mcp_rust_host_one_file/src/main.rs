@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::{Result};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::io;
@@ -70,7 +70,7 @@ impl MCPHost {
         };
 
         {
-            let mut servers = self.servers.lock().unwrap();
+            let mut servers = self.servers.lock().await;
             servers.insert(name.to_string(), server);
         }
 
@@ -98,7 +98,7 @@ impl MCPHost {
 
         if let Some(result) = response.result {
             let capabilities: ServerCapabilities = serde_json::from_value(result)?;
-            let mut servers = self.servers.lock().unwrap();
+            let mut servers = self.servers.lock().await;
             if let Some(server) = servers.get_mut(name) {
                 server.capabilities = Some(capabilities);
                 server.initialized = true;
@@ -126,7 +126,7 @@ impl MCPHost {
         
         // Get the server's I/O handles
         let (stdin, stdout) = {
-            let servers = self.servers.lock().unwrap();
+            let servers = self.servers.lock().await;
             let server = servers.get(server_name)
                 .ok_or_else(|| anyhow::anyhow!("Server not found: {}", server_name))?;
             
@@ -232,7 +232,7 @@ impl MCPHost {
     }
 
     pub async fn stop_server(&self, name: &str) -> Result<()> {
-        let mut servers = self.servers.lock().unwrap();
+        let mut servers = self.servers.lock().await;
         if let Some(mut server) = servers.remove(name) {
             server.process.kill()?;
         }
@@ -264,7 +264,7 @@ impl MCPHost {
                     println!("  quit                            - Exit the program");
                 }
                 "servers" => {
-                    let servers = self.servers.lock().unwrap();
+                    let servers = self.servers.lock().await;
                     println!("\nRunning servers:");
                     for (name, server) in servers.iter() {
                         println!("  {} - initialized: {}", name, server.initialized);
@@ -363,7 +363,7 @@ async fn main() -> Result<()> {
     host.run_cli().await?;
 
     // Stop all servers before exit
-    let servers = host.servers.lock().unwrap();
+    let servers = host.servers.lock().await;
     for name in servers.keys() {
         let _ = host.stop_server(name).await;
     }
