@@ -71,7 +71,8 @@ async fn main() {
                             "description": "The bash command to execute"
                         }
                     },
-                    "required": ["command"]
+                    "required": ["command"],
+                    "additionalProperties": false
                 })),
             },
 
@@ -96,7 +97,8 @@ async fn main() {
                     "properties": {
                         "url": { 
                             "type": "string",
-                            "description": "The complete URL of the webpage to read and analyze"
+                            "description": "The complete URL of the webpage to read and analyze",
+                            "format": "uri"
                         }
                     },
                     "required": ["url"],
@@ -125,10 +127,11 @@ async fn main() {
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The search query - be specific and include relevant keywords"
+                            "description": "The search query - be specific and include relevant keywords",
+                            "minLength": 1
                         },
                         "count": {
-                            "type": "number",
+                            "type": "integer",
                             "description": "Number of results to return (max 20). Use more results for broad research, fewer for specific queries.",
                             "default": 10,
                             "minimum": 1,
