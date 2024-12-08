@@ -312,14 +312,13 @@ impl MCPHost {
                             println!("\nAvailable tools for {}:", server_name);
                             for tool in tools {
                                 println!("  {} - {}", tool.name, tool.description.unwrap_or_default());
-                                if let Some(schema) = tool.input_schema {
-                                    println!("    Arguments schema:");
-                                    println!("{}", serde_json::to_string_pretty(&schema)?
-                                        .split('\n')
-                                        .map(|line| format!("      {}", line))
-                                        .collect::<Vec<_>>()
-                                        .join("\n"));
-                                }
+                                let schema = tool.input_schema;
+                                println!("    Arguments schema:");
+                                println!("{}", serde_json::to_string_pretty(&schema)?
+                                    .split('\n')
+                                    .map(|line| format!("      {}", line))
+                                    .collect::<Vec<_>>()
+                                    .join("\n"));
                             }
                             println!();
                         }
