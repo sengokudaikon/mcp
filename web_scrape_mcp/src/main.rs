@@ -64,7 +64,7 @@ async fn main() {
             ToolInfo {
                 name: BashExecutor::new().tool_info().name,
                 description: Some(BashExecutor::new().tool_info().description),
-                inputSchema: BashExecutor::new().tool_info().inputSchema,
+                input_schema: BashExecutor::new().tool_info().input_schema,
             },
 
             ToolInfo {
@@ -83,7 +83,7 @@ async fn main() {
                     The tool takes a screenshot of the full webpage, processes it with OCR, and returns all visible text. \
                     Use this when you need to actually read the contents of a webpage, not just search for information.".into()
                 ),
-                inputSchema: json!({
+                input_schema: json!({
                     "type": "object",
                     "properties": {
                         "url": { 
@@ -111,7 +111,7 @@ async fn main() {
                     Use this tool first to find relevant URLs, then use scrape_url to read specific pages in detail. \
                     This tool returns a list of search results with titles, URLs, and brief descriptions.".into()
                 ),
-                inputSchema: json!({
+                input_schema: json!({
                     "type": "object",
                     "properties": {
                         "query": {
@@ -207,12 +207,12 @@ async fn handle_request(
             {
                 let mut guard = state.lock().await;
                 guard.client_capabilities = Some(params.capabilities);
-                guard.client_info = Some(params.clientInfo);
+                guard.client_info = Some(params.client_info);
             }
 
             let protocol_version =
-                if SUPPORTED_PROTOCOL_VERSIONS.contains(&params.protocolVersion.as_str()) {
-                    params.protocolVersion
+                if SUPPORTED_PROTOCOL_VERSIONS.contains(&params.protocol_version.as_str()) {
+                    params.protocol_version
                 } else {
                     LATEST_PROTOCOL_VERSION.to_string()
                 };
@@ -363,7 +363,7 @@ async fn handle_request(
                                         ctype: "text".into(),
                                         text: extract_text_from_html(&body, Some(&url)),
                                     }],
-                                    isError: None,
+                                    is_error: None,
                                     _meta: None,
                                     progress: None,
                                     total: None,
@@ -433,7 +433,7 @@ async fn handle_request(
                                                         ctype: "text".into(),
                                                         text: processed_text,
                                                     }],
-                                                    isError: None,
+                                                    is_error: None,
                                                     _meta: None,
                                                     progress: None,
                                                     total: None,
@@ -472,7 +472,7 @@ async fn handle_request(
                                         ctype: "text".into(),
                                         text: format!("Error: {}", e),
                                     }],
-                                    isError: Some(true),
+                                    is_error: Some(true),
                                     _meta: None,
                                     progress: None,
                                     total: None,
@@ -564,7 +564,7 @@ async fn handle_request(
                                         ctype: "text".into(),
                                         text: results,
                                     }],
-                                    isError: None,
+                                    is_error: None,
                                     _meta: None,
                                     progress: None,
                                     total: None,
@@ -577,7 +577,7 @@ async fn handle_request(
                                         ctype: "text".into(),
                                         text: format!("Search error: {}", e),
                                     }],
-                                    isError: Some(true),
+                                    is_error: Some(true),
                                     _meta: None,
                                     progress: None,
                                     total: None,
