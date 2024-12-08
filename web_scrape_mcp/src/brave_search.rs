@@ -97,10 +97,6 @@ impl BraveSearchClient {
             safesearch: Some("moderate".to_string()),
         };
 
-        // Log request details
-        println!("Making request to: {}", self.base_url);
-        println!("Query params: {:?}", params);
-
         // Set up headers
         let mut headers = HeaderMap::new();
         headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
@@ -117,29 +113,15 @@ impl BraveSearchClient {
             .send()
             .await?;
 
-        // Check status and content type
-        let status = response.status();
-        let content_type = response.headers()
-            .get(reqwest::header::CONTENT_TYPE)
-            .and_then(|v| v.to_str().ok())
-            .unwrap_or("unknown");
-
-        println!("Response status: {}", status);
-        println!("Content-Type: {}", content_type);
-
-        if !status.is_success() {
+        if !response.status().is_success() {
             let error_text = response.text().await?;
             println!("Error response: {}", error_text);
             anyhow::bail!("API request failed with status {}: {}", status, error_text);
         }
 
-        // Get the raw response body first
-        let body = response.text().await?;
-        println!("Response body (first 100 chars): {}", &body[..body.len().min(100)]);
-
-        // Try to parse the JSON
-        let search_response = serde_json::from_str::<SearchResponse>(&body)
-            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}. Body: {}", e, body))?;
+        // Parse the JSON response
+        let search_response = response.json::<SearchResponse>().await
+            .map_err(|e| anyhow::anyhow!("Failed to parse response: {}", e))?;
 
         Ok(search_response)
     }
