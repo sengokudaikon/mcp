@@ -43,11 +43,8 @@ struct MCPServerState {
     resources: Vec<ResourceInfo>,
     tools: Vec<ToolInfo>,
     client_capabilities: Option<ClientCapabilities>,
-    client_info: Option<ClientImplementation>,
+    client_info: Option<Implementation>,
 }
-
-const LATEST_PROTOCOL_VERSION: &str = "2024-11-05";
-const SUPPORTED_PROTOCOL_VERSIONS: [&str; 2] = ["2024-11-05", "2024-10-07"];
 
 #[tokio::main]
 async fn main() {
@@ -60,7 +57,7 @@ async fn main() {
         resources: vec![ResourceInfo {
             uri: "file:///example.txt".into(),
             name: "Example Text File".into(),
-            mimeType: Some("text/plain".into()),
+            mime_type: Some("text/plain".into()),
             description: Some("An example text resource".into()),
         }],
         tools: vec![
@@ -221,20 +218,20 @@ async fn handle_request(
                 };
 
             let result = InitializeResult {
-                protocolVersion: protocol_version,
+                protocol_version: protocol_version,
                 capabilities: ServerCapabilities {
                     experimental: None,
                     logging: None,
                     prompts: None,
-                    resources: Some(ServerResourcesCapability {
-                        subscribe: Some(false),
-                        listChanged: Some(true),
+                    resources: Some(ResourcesCapability {
+                        subscribe: false,
+                        list_changed: true,
                     }),
-                    tools: Some(ServerToolsCapability {
-                        listChanged: Some(true),
+                    tools: Some(ToolsCapability {
+                        list_changed: true,
                     }),
                 },
-                serverInfo: Implementation {
+                server_info: Implementation {
                     name: "rust-mcp-server".into(),
                     version: "1.0.0".into(),
                 },
@@ -271,7 +268,7 @@ async fn handle_request(
                 Some(r) => {
                     let content = ResourceContent {
                         uri: r.uri.clone(),
-                        mimeType: r.mimeType.clone(),
+                        mime_type: r.mime_type.clone(),
                         text: Some("Example file contents.\n".into()),
                         blob: None,
                     };
