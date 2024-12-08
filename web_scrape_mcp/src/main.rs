@@ -63,7 +63,7 @@ async fn main() {
             ToolInfo {
                 name: BashExecutor::new().tool_info().name,
                 description: Some(BashExecutor::new().tool_info().description),
-                input_schema: Some(json!({
+                input_schema: json!({
                     "type": "object",
                     "properties": {
                         "command": {
@@ -73,7 +73,7 @@ async fn main() {
                     },
                     "required": ["command"],
                     "additionalProperties": false
-                })),
+                }),
             },
 
             ToolInfo {
@@ -92,7 +92,7 @@ async fn main() {
                     The tool takes a screenshot of the full webpage, processes it with OCR, and returns all visible text. \
                     Use this when you need to actually read the contents of a webpage, not just search for information.".into()
                 ),
-                input_schema: Some(json!({
+                input_schema: json!({
                     "type": "object",
                     "properties": {
                         "url": { 
@@ -103,7 +103,7 @@ async fn main() {
                     },
                     "required": ["url"],
                     "additionalProperties": false
-                })),
+                }),
             },
             ToolInfo {
                 name: "brave_search".into(),
@@ -122,7 +122,7 @@ async fn main() {
                     Use this tool first to find relevant URLs, then use scrape_url to read specific pages in detail. \
                     This tool returns a list of search results with titles, URLs, and brief descriptions.".into()
                 ),
-                input_schema: Some(json!({
+                input_schema: json!({
                     "type": "object",
                     "properties": {
                         "query": {
@@ -140,7 +140,7 @@ async fn main() {
                     },
                     "required": ["query"],
                     "additionalProperties": false
-                })),
+                }),
             }
         ],
         client_capabilities: None,
