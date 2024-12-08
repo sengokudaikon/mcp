@@ -505,7 +505,7 @@ async fn handle_request(
                                         result.stderr
                                     ),
                                 }],
-                                isError: Some(!result.success),
+                                is_error: Some(!result.success),
                                 _meta: None,
                                 progress: None,
                                 total: None,
