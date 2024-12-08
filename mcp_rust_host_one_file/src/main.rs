@@ -3,9 +3,10 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::io;
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{ChildStdin, ChildStdout, Command as AsyncCommand};
+use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use uuid::Uuid;
@@ -137,7 +138,7 @@ impl MCPHost {
             // Write request
             {
                 let request_bytes = request_str.as_bytes().to_vec(); // Clone the data
-                let mut stdin_guard = stdin.lock().unwrap();
+                let mut stdin_guard = stdin.lock().await;
                 if let Err(e) = stdin_guard.write_all(&request_bytes).await {
                     let _ = tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await;
                     return;
@@ -152,7 +153,7 @@ impl MCPHost {
             // Read response
             let mut response_line = String::new();
             {
-                let mut stdout_guard = stdout.lock().unwrap();
+                let mut stdout_guard = stdout.lock().await;
                 let mut reader = BufReader::new(&mut *stdout_guard);
                 
                 match reader.read_line(&mut response_line).await {
