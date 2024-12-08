@@ -25,7 +25,6 @@ use brave_search::BraveSearchClient;
 use scraping_bee::{ScrapingBeeClient, ScrapingBeeResponse};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::collections::HashMap;
 
 use std::sync::Arc;
 use tokio::io::stdout;
