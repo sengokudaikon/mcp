@@ -23,8 +23,8 @@ use shared_protocol_objects::{
 struct ManagedServer {
     name: String,
     process: Child,
-    stdin: ChildStdin,
-    stdout: tokio::process::ChildStdout, // Added `stdout` field
+    stdin: tokio::process::ChildStdin,
+    stdout: tokio::process::ChildStdout,
     capabilities: Option<ServerCapabilities>,
     initialized: bool,
 }
@@ -116,19 +116,33 @@ impl MCPHost {
     }
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
-        let mut servers = self.servers.lock().unwrap();
-        let server = servers.get_mut(server_name)
+        let servers = self.servers.lock().unwrap();
+        let server = servers.get(server_name)
             .context("Server not found")?;
 
         // Send request via stdin
         let request_str = serde_json::to_string(&request)? + "\n";
-        server.stdin.write_all(request_str.as_bytes()).await?;
-    
+        
+        // Clone these before dropping the lock
+        let mut stdin = server.stdin.try_clone().await?;
+        let mut stdout = server.stdout.try_clone().await?;
+        
+        // Drop the lock before we do I/O
+        drop(servers);
+
+        // Send request
+        stdin.write_all(request_str.as_bytes()).await?;
+        stdin.flush().await?;
+
         // Read response from stdout
-        let mut reader = BufReader::new(&mut server.stdout);
+        let mut reader = BufReader::new(&mut stdout);
         let mut response_line = String::new();
         reader.read_line(&mut response_line).await?;
-    
+
+        if response_line.is_empty() {
+            return Err(anyhow::anyhow!("Server closed connection"));
+        }
+
         let response: JsonRpcResponse = serde_json::from_str(&response_line)?;
         Ok(response)
     }
