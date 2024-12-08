@@ -5,8 +5,10 @@ use std::io::{self, Write};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::process::{ChildStdin, ChildStdout, Command as AsyncCommand};
+use tokio::sync::mpsc;
+use tokio::time::timeout;
 use uuid::Uuid;
-
 
 use shared_protocol_objects::{
     ClientCapabilities, JsonRpcRequest, JsonRpcResponse, ServerCapabilities, Implementation, Tool, ToolContent,
@@ -19,8 +21,8 @@ use shared_protocol_objects::{
 struct ManagedServer {
     name: String,
     process: Child,
-    stdin: tokio::process::ChildStdin,
-    stdout: tokio::process::ChildStdout,
+    stdin: ChildStdin,
+    stdout: ChildStdout,
     capabilities: Option<ServerCapabilities>,
     initialized: bool,
 }
@@ -28,6 +30,7 @@ struct ManagedServer {
 pub struct MCPHost {
     servers: Arc<Mutex<HashMap<String, ManagedServer>>>,
     client_info: Implementation,
+    request_timeout: std::time::Duration,
 }
 
 impl MCPHost {
@@ -38,6 +41,7 @@ impl MCPHost {
                 name: "mcp-host".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
             },
+            request_timeout: std::time::Duration::from_secs(30), // Default timeout
         })
     }
 
@@ -50,25 +54,27 @@ impl MCPHost {
             .spawn()?;
 
         let child_stdin = child.stdin.take().expect("Failed to get stdin");
-        let stdin = tokio::process::ChildStdin::from_std(child_stdin)?;
+        let stdin = ChildStdin::from_std(child_stdin)?;
 
         let stdout = child.stdout.take().expect("Failed to get stdout");
-
+        let stdout = ChildStdout::from_std(stdout)?;
 
         let server = ManagedServer {
             name: name.to_string(),
             process: child,
             stdin,
-            stdout: tokio::process::ChildStdout::from_std(stdout)?,
+            stdout,
             capabilities: None,
             initialized: false,
         };
 
-        let mut servers = self.servers.lock().unwrap();
-        servers.insert(name.to_string(), server);
+        {
+            let mut servers = self.servers.lock().unwrap();
+            servers.insert(name.to_string(), server);
+        }
 
         self.initialize_server(name).await?;
-        
+
         Ok(())
     }
 
@@ -88,7 +94,7 @@ impl MCPHost {
         };
 
         let response = self.send_request(name, request).await?;
-        
+
         if let Some(result) = response.result {
             let capabilities: ServerCapabilities = serde_json::from_value(result)?;
             let mut servers = self.servers.lock().unwrap();
@@ -112,28 +118,64 @@ impl MCPHost {
     }
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
-        let mut servers = self.servers.lock().unwrap();
-        let server = servers.get_mut(server_name)
-            .context("Server not found")?;
-
-        // Send request via stdin
-        let request_str = serde_json::to_string(&request)? + "\n";
-        
-        // Write to stdin
-        server.stdin.write_all(request_str.as_bytes()).await?;
-        server.stdin.flush().await?;
-
-        // Read response from stdout
-        let mut reader = BufReader::new(&mut server.stdout);
-        let mut response_line = String::new();
-        reader.read_line(&mut response_line).await?;
-
-        if response_line.is_empty() {
-            return Err(anyhow::anyhow!("Server closed connection"));
+        // Note: We take and immediately release the lock here to ensure the server exists
+        {
+            let servers = self.servers.lock().unwrap();
+            let _server = servers.get(server_name).context("Server not found")?;
         }
 
-        let response: JsonRpcResponse = serde_json::from_str(&response_line)?;
-        Ok(response)
+        let request_str = serde_json::to_string(&request)? + "\n";
+
+        let (response_tx, mut response_rx) = mpsc::channel(1);
+
+        // Spawn a task to handle the request/response
+        let servers_clone = self.servers.clone();
+        let server_name_clone = server_name.to_string();
+        tokio::spawn(async move {
+            let mut servers = servers_clone.lock().unwrap();
+            if let Some(server) = servers.get_mut(&server_name_clone) {
+                // Write to stdin
+                if let Err(e) = server.stdin.write_all(request_str.as_bytes()).await {
+                    let _ = response_tx.send(Err(anyhow::anyhow!("Failed to write to server stdin: {}", e)));
+                    return;
+                }
+                if let Err(e) = server.stdin.flush().await {
+                    let _ = response_tx.send(Err(anyhow::anyhow!("Failed to flush server stdin: {}", e)));
+                    return;
+                }
+
+                // Read response from stdout
+                let mut reader = BufReader::new(&mut server.stdout);
+                let mut response_line = String::new();
+                match reader.read_line(&mut response_line).await {
+                    Ok(0) => {
+                        let _ = response_tx.send(Err(anyhow::anyhow!("Server closed connection")));
+                    },
+                    Ok(_) => {
+                        match serde_json::from_str(&response_line) {
+                            Ok(response) => {
+                                let _ = response_tx.send(Ok(response));
+                            },
+                            Err(e) => {
+                                let _ = response_tx.send(Err(anyhow::anyhow!("Failed to parse server response: {}", e)));
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        let _ = response_tx.send(Err(anyhow::anyhow!("Failed to read from server: {}", e)));
+                    }
+                }
+            } else {
+                let _ = response_tx.send(Err(anyhow::anyhow!("Server not found: {}", server_name_clone)));
+            }
+        });
+
+        // Wait for the response with timeout
+        match timeout(self.request_timeout, response_rx.recv()).await {
+            Ok(Some(response)) => response,
+            Ok(None) => Err(anyhow::anyhow!("Response channel closed")),
+            Err(_) => Err(anyhow::anyhow!("Request timed out")),
+        }
     }
 
     pub async fn list_server_tools(&self, server_name: &str) -> Result<Vec<ToolInfo>> {
@@ -143,7 +185,7 @@ impl MCPHost {
             method: "tools/list".to_string(),
             params: None,
         };
-    
+
         let response = self.send_request(server_name, request).await?;
         let tools: ListToolsResult = serde_json::from_value(response.result.unwrap_or_default())?;
         Ok(tools.tools)
@@ -162,7 +204,7 @@ impl MCPHost {
 
         let response = self.send_request(server_name, request).await?;
         let result: CallToolResult = serde_json::from_value(response.result.unwrap_or_default())?;
-        
+
         let mut output = String::new();
         for content in result.content {
             match content {
@@ -193,21 +235,19 @@ impl MCPHost {
 
     pub async fn run_cli(&self) -> Result<()> {
         println!("MCP Host CLI - Enter 'help' for commands");
-        
-        let mut input = String::new();
-        loop {
-            print!("> ");
-            io::stdout().flush()?;
-            
-            input.clear();
-            io::stdin().read_line(&mut input)?;
-            
-            let args: Vec<&str> = input.trim().split_whitespace().collect();
+
+        let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
+
+        while let Ok(Some(line)) = lines.next_line().await {
+            let args: Vec<&str> = line.trim().split_whitespace().collect();
             if args.is_empty() {
                 continue;
             }
 
-            match args[0] {
+            let command = args[0];
+            let server_args = &args[1..];
+
+            match command {
                 "help" => {
                     println!("Available commands:");
                     println!("  servers                         - List running servers");
@@ -226,37 +266,42 @@ impl MCPHost {
                     println!();
                 }
                 "start" => {
-                    if args.len() < 3 {
+                    if server_args.len() < 2 {
                         println!("Usage: start <name> <command> [args...]");
                         continue;
                     }
-                    
-                    let server_args = args[3..].to_vec().into_iter().map(String::from).collect::<Vec<_>>();
-                    match self.start_server(args[1], args[2], &server_args).await {
-                        Ok(()) => println!("Started server '{}'", args[1]),
+
+                    let server_name = server_args[0];
+                    let server_command = server_args[1];
+                    let server_extra_args = server_args[2..].to_vec().into_iter().map(String::from).collect::<Vec<_>>();
+
+                    match self.start_server(server_name, server_command, &server_extra_args).await {
+                        Ok(()) => println!("Started server '{}'", server_name),
                         Err(e) => println!("Error starting server: {}", e),
                     }
                 }
                 "stop" => {
-                    if args.len() != 2 {
+                    if server_args.len() != 1 {
                         println!("Usage: stop <server>");
                         continue;
                     }
-                    
-                    match self.stop_server(args[1]).await {
-                        Ok(()) => println!("Stopped server '{}'", args[1]),
+
+                    let server_name = server_args[0];
+                    match self.stop_server(server_name).await {
+                        Ok(()) => println!("Stopped server '{}'", server_name),
                         Err(e) => println!("Error stopping server: {}", e),
                     }
                 }
                 "tools" => {
-                    if args.len() != 2 {
+                    if server_args.len() != 1 {
                         println!("Usage: tools <server>");
                         continue;
                     }
-                    
-                    match self.list_server_tools(args[1]).await {
+
+                    let server_name = server_args[0];
+                    match self.list_server_tools(server_name).await {
                         Ok(tools) => {
-                            println!("\nAvailable tools for {}:", args[1]);
+                            println!("\nAvailable tools for {}:", server_name);
                             for tool in tools {
                                 println!("  {} - {}", tool.name, tool.description.unwrap_or_default());
                                 if let Some(schema) = serde_json::to_string_pretty(&tool.input_schema).ok() {
@@ -269,17 +314,19 @@ impl MCPHost {
                     }
                 }
                 "call" => {
-                    if args.len() != 3 {
+                    if server_args.len() != 2 {
                         println!("Usage: call <server> <tool>");
                         continue;
                     }
 
-                    print!("Enter arguments (JSON): ");
-                    io::stdout().flush()?;
-                    
+                    let server_name = server_args[0];
+                    let tool_name = server_args[1];
+
+                    println!("Enter arguments (JSON):");
                     let mut json_input = String::new();
-                    io::stdin().read_line(&mut json_input)?;
-                    
+                    let stdin = io::stdin(); // Standard input stream
+                    stdin.read_line(&mut json_input)?;
+
                     let args_value: Value = match serde_json::from_str(&json_input) {
                         Ok(v) => v,
                         Err(e) => {
@@ -288,7 +335,7 @@ impl MCPHost {
                         }
                     };
 
-                    match self.call_tool(args[1], args[2], args_value).await {
+                    match self.call_tool(server_name, tool_name, args_value).await {
                         Ok(result) => println!("\nResult:\n{}\n", result),
                         Err(e) => println!("Error: {}", e),
                     }
@@ -308,7 +355,7 @@ async fn main() -> Result<()> {
 
     // Start the CLI loop
     host.run_cli().await?;
-    
+
     // Stop all servers before exit
     let servers = host.servers.lock().unwrap();
     for name in servers.keys() {
