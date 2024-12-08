@@ -62,7 +62,7 @@ impl MCPHost {
         let server = ManagedServer {
             name: name.to_string(),
             process: child,
-            stdin: tokio::process::ChildStdin::from_std(stdin)?,
+            stdin,
             stdout: tokio::process::ChildStdout::from_std(stdout)?,
             capabilities: None,
             initialized: false,
@@ -116,12 +116,10 @@ impl MCPHost {
     }
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
-        let server = {
-            self.servers.lock().unwrap()
-                .get_mut(server_name)
-                .context("Server not found")?
-        };
-    
+        let mut servers = self.servers.lock().unwrap();
+        let server = servers.get_mut(server_name)
+            .context("Server not found")?;
+
         // Send request via stdin
         let request_str = serde_json::to_string(&request)? + "\n";
         server.stdin.write_all(request_str.as_bytes()).await?;

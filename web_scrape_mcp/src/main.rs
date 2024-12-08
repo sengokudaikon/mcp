@@ -2,6 +2,7 @@ mod processor;
 use shared_protocol_objects::{
     ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
     InitializeResult, ClientCapabilities, InitializeParams,
+    ResourcesCapability, ToolsCapability,
     JsonRpcRequest, JsonRpcResponse, JsonRpcError,
     ListResourcesResult, ListToolsResult, ReadResourceParams,
     ResourceContent, ReadResourceResult, CallToolParams,
@@ -192,7 +193,7 @@ async fn handle_request(
 
     match req.method.as_str() {
         "initialize" => {
-            let params_res: Result<InitializeParams, _> = serde_json::from_value(req.params);
+            let params_res: Result<InitializeParams, _> = serde_json::from_value(req.params.unwrap_or(Value::Null));
             let params = match params_res {
                 Ok(p) => p,
                 Err(e) => {
@@ -250,7 +251,7 @@ async fn handle_request(
         }
 
         "resources/read" => {
-            let params_res: Result<ReadResourceParams, _> = serde_json::from_value(req.params);
+            let params_res: Result<ReadResourceParams, _> = serde_json::from_value(req.params.unwrap_or(Value::Null));
             let params = match params_res {
                 Ok(p) => p,
                 Err(e) => {
@@ -292,7 +293,7 @@ async fn handle_request(
         }
 
         "tools/call" => {
-            let params_res: Result<CallToolParams, _> = serde_json::from_value(req.params.clone());
+            let params_res: Result<CallToolParams, _> = serde_json::from_value(req.params.clone().unwrap_or(Value::Null));
             let params = match params_res {
                 Ok(p) => p,
                 Err(e) => {
@@ -338,7 +339,11 @@ async fn handle_request(
                         match result {
                             Ok(ScrapingBeeResponse::Text(body)) => {
                                 // Send progress notification if requested
-                                let meta = req.params.get("_meta").clone();
+                                let meta = if let Some(params) = &req.params {
+                                    params.get("_meta").cloned()
+                                } else {
+                                    None
+                                };
                                 if let Some(meta) = meta {
                                     if let Some(token) = meta.get("progressToken") {
                                         let progress_notification = JsonRpcResponse {
