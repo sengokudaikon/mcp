@@ -223,10 +223,13 @@ pub struct CallToolResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResponseContent {
-    #[serde(rename = "ctype")]
+    #[serde(rename = "type")]
     pub type_: String,
     pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<HashMap<String, Value>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -25,6 +25,7 @@ use brave_search::BraveSearchClient;
 use scraping_bee::{ScrapingBeeClient, ScrapingBeeResponse};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::collections::HashMap;
 
 use std::sync::Arc;
 use tokio::io::stdout;
@@ -402,6 +403,7 @@ async fn handle_request(
                                     content: vec![ToolResponseContent {
                                         type_: "text".into(),
                                         text: extract_text_from_html(&body, Some(&url)),
+                                        annotations: None,
                                     }],
                                     is_error: None,
                                     _meta: None,
@@ -472,6 +474,7 @@ async fn handle_request(
                                                     content: vec![ToolResponseContent {
                                                         type_: "text".into(),
                                                         text: processed_text,
+                                                        annotations: None,
                                                     }],
                                                     is_error: None,
                                                     _meta: None,
@@ -511,6 +514,7 @@ async fn handle_request(
                                     content: vec![ToolResponseContent {
                                         type_: "text".into(),
                                         text: format!("Error: {}", e),
+                                        annotations: None,
                                     }],
                                     is_error: Some(true),
                                     _meta: None,
@@ -544,6 +548,7 @@ async fn handle_request(
                                         result.stdout,
                                         result.stderr
                                     ),
+                                    annotations: None,
                                 }],
                                 is_error: Some(!result.success),
                                 _meta: None,
@@ -603,6 +608,7 @@ async fn handle_request(
                                     content: vec![ToolResponseContent {
                                         type_: "text".into(),
                                         text: results,
+                                        annotations: None,
                                     }],
                                     is_error: None,
                                     _meta: None,
@@ -616,6 +622,7 @@ async fn handle_request(
                                     content: vec![ToolResponseContent {
                                         type_: "text".into(),
                                         text: format!("Search error: {}", e),
+                                        annotations: None,
                                     }],
                                     is_error: Some(true),
                                     _meta: None,
