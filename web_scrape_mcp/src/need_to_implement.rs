@@ -27,6 +27,8 @@ struct DataNode {
     metadata: HashMap<String, String>,
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(default)]
+    quotes: Vec<String>,
     #[serde(default = "chrono::Utc::now")]
     date_created: chrono::DateTime<chrono::Utc>,
     #[serde(default = "chrono::Utc::now")]
@@ -42,6 +44,7 @@ impl DataNode {
             content,
             metadata: HashMap::new(),
             tags: Vec::new(),
+            quotes: Vec::new(),
             date_created: now,
             date_modified: now,
         }
@@ -429,7 +432,8 @@ struct UpdateNodeParams {
     new_description: Option<String>,
     new_content: Option<String>,
     new_tags: Option<Vec<String>>,
-    new_metadata: Option<HashMap<String, String>>
+    new_metadata: Option<HashMap<String, String>>,
+    new_quotes: Option<Vec<String>>
 }
 
 // Parameters for deleting a node
@@ -624,6 +628,9 @@ pub async fn handle_graph_tool_call(
             if let Some(metadata) = create_params.metadata {
                 node.metadata = metadata;
             }
+            if let Some(quotes) = create_params.quotes {
+                node.quotes = quotes;
+            }
 
             match graph_manager.create_root(node).await {
                 Ok(idx) => {
@@ -709,6 +716,9 @@ pub async fn handle_graph_tool_call(
                 }
                 if let Some(metadata) = update_params.new_metadata {
                     updated_node.metadata = metadata;
+                }
+                if let Some(quotes) = update_params.new_quotes {
+                    updated_node.quotes = quotes;
                 }
 
                 match graph_manager.update_node(idx, updated_node).await {

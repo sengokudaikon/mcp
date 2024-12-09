@@ -188,6 +188,11 @@ async fn main() {
                                             "type": "object",
                                             "additionalProperties": { "type": "string" },
                                             "description": "Additional metadata key-value pairs"
+                                        },
+                                        "quotes": {
+                                            "type": "array",
+                                            "items": { "type": "string" },
+                                            "description": "Direct quotes from the user"
                                         }
                                     },
                                     "required": ["name", "description", "content"]
@@ -209,6 +214,11 @@ async fn main() {
                                             "type": "object",
                                             "additionalProperties": { "type": "string" },
                                             "description": "New metadata key-value pairs"
+                                        },
+                                        "new_quotes": {
+                                            "type": "array",
+                                            "items": { "type": "string" },
+                                            "description": "New direct quotes from the user"
                                         }
                                     },
                                     "required": ["node_name"]
