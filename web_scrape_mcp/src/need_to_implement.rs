@@ -172,6 +172,24 @@ impl GraphManager {
             })
             .collect()
     }
+
+    fn get_most_connected_nodes(&self, limit: usize) -> Vec<(NodeIndex, &DataNode, usize)> {
+        let mut nodes: Vec<_> = self.graph.node_indices()
+            .filter_map(|idx| {
+                self.graph.node_weight(idx).map(|node| {
+                    // Count both incoming and outgoing edges
+                    let edge_count = self.graph.edges_directed(idx, petgraph::Direction::Incoming).count() +
+                                   self.graph.edges_directed(idx, petgraph::Direction::Outgoing).count();
+                    (idx, node, edge_count)
+                })
+            })
+            .collect();
+        
+        // Sort by edge count in descending order
+        nodes.sort_by(|a, b| b.2.cmp(&a.2));
+        nodes.truncate(limit);
+        nodes
+    }
 }
 
 // Parameters for creating a new node
@@ -229,6 +247,11 @@ struct GetNodesByTagParams {
 #[derive(Deserialize)]
 struct SearchNodesParams {
     query: String
+}
+
+#[derive(Deserialize)]
+struct GetMostConnectedParams {
+    limit: Option<usize>
 }
 
 // Define a struct to hold the tool information
@@ -600,6 +623,32 @@ pub async fn handle_graph_tool_call(
                     "content": node.content,
                     "tags": node.tags,
                     "metadata": node.metadata
+                })
+            }).collect();
+            Ok(success_response(None, json!(CallToolResult {
+                content: vec![ToolResponseContent {
+                    type_: "text".into(),
+                    text: json!(nodes_info).to_string(),
+                    annotations: None,
+                }],
+                is_error: Some(false),
+                _meta: None,
+                progress: None,
+                total: None
+            })))
+        }
+        (Some("get_most_connected"), Some(params)) => {
+            let most_connected_params: GetMostConnectedParams = serde_json::from_value(params.clone())?;
+            let limit = most_connected_params.limit.unwrap_or(10);
+            let nodes = graph_manager.get_most_connected_nodes(limit);
+            let nodes_info: Vec<_> = nodes.into_iter().map(|(_, node, edge_count)| {
+                json!({
+                    "name": node.name,
+                    "description": node.description,
+                    "content": node.content,
+                    "tags": node.tags,
+                    "metadata": node.metadata,
+                    "connection_count": edge_count
                 })
             }).collect();
             Ok(success_response(None, json!(CallToolResult {

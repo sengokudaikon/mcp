@@ -159,7 +159,7 @@ async fn main() {
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes"],
+                            "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected"],
                             "description": "The action to perform on the graph"
                         },
                         "params": {
@@ -257,6 +257,18 @@ async fn main() {
                                         "query": { "type": "string", "description": "Search query to match against node names and descriptions" }
                                     },
                                     "required": ["query"]
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "GetMostConnectedParams",
+                                    "properties": {
+                                        "limit": { 
+                                            "type": "integer",
+                                            "description": "Maximum number of nodes to return (default: 10)",
+                                            "minimum": 1,
+                                            "maximum": 100
+                                        }
+                                    }
                                 }
                             ]
                         }
