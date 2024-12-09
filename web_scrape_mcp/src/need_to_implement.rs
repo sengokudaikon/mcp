@@ -536,6 +536,13 @@ struct DeleteNodeParams {
     node_name: String, // Use name to identify the node
 }
 
+#[derive(Deserialize)]
+struct MoveNodeParams {
+    node_name: String,
+    new_parent_name: String, 
+    new_relation: String,
+}
+
 // Parameters for connecting two nodes
 #[derive(Deserialize)]
 struct ConnectNodesParams {
@@ -849,6 +856,41 @@ pub async fn handle_graph_tool_call(
                 }
             } else {
                 Ok(error_response(id.clone(), INVALID_PARAMS, "Node not found"))
+            }
+        }
+        "delete_node" => {
+            let move_params: MoveNodeParams = serde_json::from_value(action_params.clone())?;
+            
+            // Get node indices
+            let node_idx = match graph_manager.get_node_by_name(&move_params.node_name) {
+                Some((idx, _)) => idx,
+                None => return Ok(error_response(id.clone(), INVALID_PARAMS, "Node not found")),
+            };
+            
+            let new_parent_idx = match graph_manager.get_node_by_name(&move_params.new_parent_name) {
+                Some((idx, _)) => idx,
+                None => return Ok(error_response(id.clone(), INVALID_PARAMS, "New parent node not found")),
+            };
+            
+            match graph_manager.move_node(node_idx, new_parent_idx, move_params.new_relation).await {
+                Ok(()) => {
+                    let result = json!({
+                        "message": "Node moved successfully",
+                        "timestamp": chrono::Utc::now()
+                    });
+                    Ok(success_response(id.clone(), json!(CallToolResult {
+                        content: vec![ToolResponseContent {
+                            type_: "text".into(),
+                            text: result.to_string(),
+                            annotations: None,
+                        }],
+                        is_error: Some(false),
+                        _meta: None,
+                        progress: None,
+                        total: None
+                    })))
+                }
+                Err(e) => Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
             }
         }
         "delete_node" => {
