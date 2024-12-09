@@ -43,6 +43,14 @@ struct GraphManager {
 }
 
 impl GraphManager {
+    fn node_name_exists(&self, name: &str) -> bool {
+        self.graph.node_indices().any(|idx| {
+            self.graph.node_weight(idx)
+                .map(|node| node.name == name)
+                .unwrap_or(false)
+        })
+    }
+
     fn new(path: String) -> Self {
         let graph = if let Ok(data) = fs::read_to_string(&path) {
             serde_json::from_str(&data).unwrap_or_else(|_| Graph::new())
@@ -66,6 +74,9 @@ impl GraphManager {
         if self.root.is_some() {
             return Err(anyhow!("Root already exists"));
         }
+        if self.node_name_exists(&node.name) {
+            return Err(anyhow!("A node with this name already exists"));
+        }
         let idx = self.graph.add_node(node);
         self.root = Some(idx);
         self.save()?;
@@ -76,6 +87,9 @@ impl GraphManager {
         if !self.graph.contains_node(parent) {
             return Err(anyhow!("Parent node not found"));
         }
+        if self.node_name_exists(&node.name) {
+            return Err(anyhow!("A node with this name already exists"));
+        }
         let idx = self.graph.add_node(node);
         self.graph.add_edge(parent, idx, rel);
         self.save()?;
@@ -83,6 +97,12 @@ impl GraphManager {
     }
 
     fn update_node(&mut self, idx: NodeIndex, node: DataNode) -> Result<()> {
+        // Only check for name uniqueness if the name is actually changing
+        if let Some(current) = self.graph.node_weight(idx) {
+            if current.name != node.name && self.node_name_exists(&node.name) {
+                return Err(anyhow!("A node with this name already exists"));
+            }
+        }
         if let Some(n) = self.graph.node_weight_mut(idx) {
             *n = node;
             self.save()?;
