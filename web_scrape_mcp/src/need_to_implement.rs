@@ -77,13 +77,13 @@ impl GraphManager {
         // Try loading existing graph first
         let graph = if path.exists() {
             //debug!("Found existing graph file at {}", path.display());
-            match fs::read_to_string(&path) {
+            let serializable = match fs::read_to_string(&path) {
                 Ok(data) => {
                     //debug!("Successfully loaded graph data");
                     match serde_json::from_str(&data) {
-                        Ok(serializable) => {
+                        Ok(s) => {
                             //debug!("Successfully parsed graph data");
-                            serializable
+                            s
                         }
                         Err(e) => {
                             //debug!("Failed to parse graph data: {}", e);
@@ -101,7 +101,7 @@ impl GraphManager {
                         edges: vec![] 
                     }
                 }
-            }
+            };
             
             let mut graph = Graph::new();
             // Restore nodes
