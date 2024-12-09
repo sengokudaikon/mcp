@@ -157,10 +157,20 @@ impl GraphManager {
 
     async fn create_root(&mut self, node: DataNode) -> Result<NodeIndex> {
         if self.root.is_some() {
-            return Err(anyhow!("Root already exists"));
+            let connected_nodes = self.get_most_connected_nodes(10)
+                .iter()
+                .map(|(_, node, count)| format!("- {} ({} connections)", node.name, count))
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Err(anyhow!("Root already exists.\n\nMost connected nodes for reference:\n{}", connected_nodes));
         }
         if self.node_name_exists(&node.name) {
-            return Err(anyhow!("A node with this name already exists"));
+            let connected_nodes = self.get_most_connected_nodes(10)
+                .iter()
+                .map(|(_, node, count)| format!("- {} ({} connections)", node.name, count))
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Err(anyhow!("A node with this name already exists.\n\nMost connected nodes for reference:\n{}", connected_nodes));
         }
         let idx = self.graph.add_node(node);
         self.root = Some(idx);
