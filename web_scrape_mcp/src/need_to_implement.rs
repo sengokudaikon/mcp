@@ -2,7 +2,7 @@ use std::fs;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize}; 
 
-const DEFAULT_GRAPH_DIR: &str = "/tmp/knowledge_graphs";
+pub const DEFAULT_GRAPH_DIR: &str = "/tmp/knowledge_graphs";
 use petgraph::Graph;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;

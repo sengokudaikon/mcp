@@ -55,8 +55,8 @@ async fn main() {
     let _ = std::env::var("BRAVE_API_KEY").expect("BRAVE_API_KEY environment variable must be set");
     
     let _ = std::env::var("KNOWLEDGE_GRAPH_DIR").unwrap_or_else(|_| {
-        println!("KNOWLEDGE_GRAPH_DIR not set, using default: {}", DEFAULT_GRAPH_DIR);
-        DEFAULT_GRAPH_DIR.to_string()
+        println!("KNOWLEDGE_GRAPH_DIR not set, using default: {}", need_to_implement::DEFAULT_GRAPH_DIR);
+        need_to_implement::DEFAULT_GRAPH_DIR.to_string()
     });
 
     let state = Arc::new(Mutex::new(MCPServerState {
