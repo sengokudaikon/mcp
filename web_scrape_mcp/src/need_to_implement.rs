@@ -17,14 +17,19 @@ use shared_protocol_objects::{
 
 #[derive(Serialize, Deserialize, Clone)]
 struct DataNode {
+    #[serde(default)]
     name: String,
+    #[serde(default)]
     description: String,
+    #[serde(default)]
     content: String,
     #[serde(default)]
     metadata: HashMap<String, String>,
     #[serde(default)]
     tags: Vec<String>,
+    #[serde(default = "chrono::Utc::now")]
     date_created: chrono::DateTime<chrono::Utc>,
+    #[serde(default = "chrono::Utc::now")]
     date_modified: chrono::DateTime<chrono::Utc>,
 }
 
