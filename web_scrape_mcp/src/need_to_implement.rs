@@ -29,6 +29,8 @@ struct DataNode {
     tags: Vec<String>,
     #[serde(default)]
     quotes: Vec<String>,
+    #[serde(default)]
+    child_nodes: Vec<String>,
     #[serde(default = "chrono::Utc::now")]
     date_created: chrono::DateTime<chrono::Utc>,
     #[serde(default = "chrono::Utc::now")]
@@ -45,6 +47,7 @@ impl DataNode {
             metadata: HashMap::new(),
             tags: Vec::new(),
             quotes: Vec::new(),
+            child_nodes: Vec::new(),
             date_created: now,
             date_modified: now,
         }
@@ -203,8 +206,17 @@ impl GraphManager {
                 .join("\n");
             return Err(anyhow!("Node with name '{}' already exists.\n\nMost connected nodes for reference:\n{}", node.name, connected_nodes));
         }
+        
+        // Add node to graph
         let idx = self.graph.add_node(node.clone());
         self.graph.add_edge(parent, idx, rel.clone());
+        
+        // Update parent's child_nodes list
+        if let Some(parent_node) = self.graph.node_weight_mut(parent) {
+            parent_node.child_nodes.push(node.name.clone());
+            parent_node.date_modified = chrono::Utc::now();
+        }
+        
         self.save().await.map_err(|e| anyhow!(
             "Failed to save graph after adding node '{}' with relation '{}' to parent {}: {}", 
             node.name, rel, parent.index(), e
@@ -246,6 +258,16 @@ impl GraphManager {
                 "Cannot delete node '{}' with multiple connections (has {} outgoing and {} incoming)", 
                 node_name, neighbors.len(), incoming.len()
             ));
+        }
+
+        // Remove node from parent's child_nodes list
+        if let Some(parent_idx) = incoming.first() {
+            if let Some(parent_node) = self.graph.node_weight_mut(*parent_idx) {
+                if let Some(pos) = parent_node.child_nodes.iter().position(|x| x == &node_name) {
+                    parent_node.child_nodes.remove(pos);
+                    parent_node.date_modified = chrono::Utc::now();
+                }
+            }
         }
 
         self.graph.remove_node(idx)
