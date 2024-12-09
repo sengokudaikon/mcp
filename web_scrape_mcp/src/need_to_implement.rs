@@ -110,21 +110,23 @@ impl GraphManager {
     
 
     async fn save(&self) -> Result<()> {
-        // Convert to serializable format
+        // Convert to serializable format with better error handling
         let serializable = SerializableGraph {
             nodes: self.graph.node_indices()
                 .map(|idx| (idx, self.graph[idx].clone()))
                 .collect(),
             edges: self.graph.edge_indices()
                 .map(|idx| {
-                    let (a, b) = self.graph.edge_endpoints(idx).unwrap();
-                    (a, b, self.graph[idx].clone())
+                    let (a, b) = self.graph.edge_endpoints(idx)
+                        .ok_or_else(|| anyhow!("Invalid edge index {}", idx.index()))?;
+                    Ok((a, b, self.graph[idx].clone()))
                 })
-                .collect()
+                .collect::<Result<Vec<_>>>()?,
         };
-        let json = serde_json::to_string(&serializable)?;
+        let json = serde_json::to_string(&serializable)
+            .map_err(|e| anyhow!("Failed to serialize graph: {}", e))?;
         tokio::fs::write(&self.path, json).await
-            .map_err(|e| anyhow!("Failed to write graph file: {}", e))?;
+            .map_err(|e| anyhow!("Failed to write graph file {}: {}", self.path.display(), e))?;
         Ok(())
     }
 
@@ -143,14 +145,17 @@ impl GraphManager {
 
     async fn create_connected_node(&mut self, node: DataNode, parent: NodeIndex, rel: String) -> Result<NodeIndex> {
         if !self.graph.node_weight(parent).is_some() {
-            return Err(anyhow!("Parent node not found"));
+            return Err(anyhow!("Parent node index {} not found in graph", parent.index()));
         }
         if self.node_name_exists(&node.name) {
-            return Err(anyhow!("A node with this name already exists"));
+            return Err(anyhow!("Node with name '{}' already exists", node.name));
         }
-        let idx = self.graph.add_node(node);
-        self.graph.add_edge(parent, idx, rel);
-        self.save().await?;
+        let idx = self.graph.add_node(node.clone());
+        self.graph.add_edge(parent, idx, rel.clone());
+        self.save().await.map_err(|e| anyhow!(
+            "Failed to save graph after adding node '{}' with relation '{}' to parent {}: {}", 
+            node.name, rel, parent.index(), e
+        ))?;
         Ok(idx)
     }
 
@@ -170,19 +175,31 @@ impl GraphManager {
 
     async fn delete_node(&mut self, idx: NodeIndex) -> Result<()> {
         if Some(idx) == self.root {
-            return Err(anyhow!("Cannot delete root"));
+            return Err(anyhow!("Cannot delete root node"));
         }
-        // Check if deletion would create isolated nodes (excluding the root)
+
+        let node_name = self.graph.node_weight(idx)
+            .map(|n| n.name.clone())
+            .unwrap_or_else(|| format!("index {}", idx.index()));
+
         let neighbors: Vec<_> = self.graph.neighbors(idx).collect();
         let incoming: Vec<_> = self.graph.neighbors_directed(idx, petgraph::Direction::Incoming).collect();
         
-        if neighbors.len() == 1 && incoming.len() == 1 {
-            self.graph.remove_node(idx);
-            self.save().await?;
-            Ok(())
-        } else {
-            Err(anyhow!("Deletion would create isolated nodes or disconnect graph"))
+        if neighbors.len() > 1 || incoming.len() > 1 {
+            return Err(anyhow!(
+                "Cannot delete node '{}' with multiple connections (has {} outgoing and {} incoming)", 
+                node_name, neighbors.len(), incoming.len()
+            ));
         }
+
+        self.graph.remove_node(idx)
+            .ok_or_else(|| anyhow!("Failed to remove node '{}' from graph", node_name))?;
+            
+        self.save().await.map_err(|e| anyhow!(
+            "Failed to save graph after deleting node '{}': {}", 
+            node_name, e
+        ))?;
+        Ok(())
     }
     
 
@@ -463,16 +480,19 @@ pub async fn handle_graph_tool_call(
     id: Option<Value>,
 ) -> Result<JsonRpcResponse> {
     
-    let tool_info = graph_tool_info(); // Get tool info here
+    let tool_info = graph_tool_info();
 
-    // Check if the tool name matches
     if params.name != tool_info.name {
-        return Err(anyhow!("Tool name does not match"));
+        return Ok(error_response(id, INVALID_PARAMS, 
+            &format!("Expected tool name '{}', got '{}'", tool_info.name, params.name)));
     }
 
-    // Extract the action and its parameters
-    let action = params.arguments.get("action").and_then(Value::as_str);
-    let action_params = params.arguments.get("params");
+    let action = params.arguments.get("action")
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow!("Missing or invalid 'action' field"))?;
+    
+    let action_params = params.arguments.get("params")
+        .ok_or_else(|| anyhow!("Missing 'params' field"))?;
 
     match (action, action_params) {
         (Some("create_root"), Some(params)) => {
