@@ -211,9 +211,12 @@ impl GraphManager {
         let idx = self.graph.add_node(node.clone());
         self.graph.add_edge(parent, idx, rel.clone());
         
-        // Update parent's child_nodes list
+        // Update parent's child_nodes list by getting all children
+        let children = self.get_children(parent);
         if let Some(parent_node) = self.graph.node_weight_mut(parent) {
-            parent_node.child_nodes.push(node.name.clone());
+            parent_node.child_nodes = children.iter()
+                .map(|(_, node, _)| node.name.clone())
+                .collect();
             parent_node.date_modified = chrono::Utc::now();
         }
         
@@ -260,14 +263,23 @@ impl GraphManager {
             ));
         }
 
-        // Remove node from parent's child_nodes list
+        // Update parent's child_nodes list
         if let Some(parent_idx) = incoming.first() {
+            // First remove the node
+            self.graph.remove_node(idx)
+                .ok_or_else(|| anyhow!("Failed to remove node '{}' from graph", node_name))?;
+            
+            // Then update parent's child list by getting remaining children
+            let remaining_children = self.get_children(*parent_idx);
             if let Some(parent_node) = self.graph.node_weight_mut(*parent_idx) {
-                if let Some(pos) = parent_node.child_nodes.iter().position(|x| x == &node_name) {
-                    parent_node.child_nodes.remove(pos);
-                    parent_node.date_modified = chrono::Utc::now();
-                }
+                parent_node.child_nodes = remaining_children.iter()
+                    .map(|(_, node, _)| node.name.clone())
+                    .collect();
+                parent_node.date_modified = chrono::Utc::now();
             }
+        } else {
+            self.graph.remove_node(idx)
+                .ok_or_else(|| anyhow!("Failed to remove node '{}' from graph", node_name))?;
         }
 
         self.graph.remove_node(idx)
@@ -307,12 +319,34 @@ impl GraphManager {
     // Method to get all immediate children of a node
     fn get_children(&self, parent: NodeIndex) -> Vec<(NodeIndex, &DataNode, String)> {
         let mut children = Vec::new();
+        // Get actual children from graph edges
         for edge in self.graph.edges(parent) {
             let child_idx = edge.target();
             if let Some(child_node) = self.graph.node_weight(child_idx) {
                 children.push((child_idx, child_node, edge.weight().clone()));
             }
         }
+        
+        // Update parent's child_nodes list if needed
+        if let Some(parent_node) = self.graph.node_weight_mut(parent) {
+            let actual_child_names: Vec<String> = children.iter()
+                .map(|(_, node, _)| node.name.clone())
+                .collect();
+            
+            // Only update if lists don't match
+            if parent_node.child_nodes != actual_child_names {
+                parent_node.child_nodes = actual_child_names;
+                parent_node.date_modified = chrono::Utc::now();
+                // Save changes asynchronously
+                let path = self.path.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = self.save().await {
+                        eprintln!("Failed to save graph after updating child_nodes: {}", e);
+                    }
+                });
+            }
+        }
+        
         children
     }
 
