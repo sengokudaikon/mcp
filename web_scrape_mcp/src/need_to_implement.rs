@@ -421,7 +421,8 @@ struct CreateNodeParams {
     parent_name: Option<String>, // Use name instead of index for a more user-friendly API
     relation: Option<String>,
     tags: Option<Vec<String>>,
-    metadata: Option<HashMap<String, String>>
+    metadata: Option<HashMap<String, String>>,
+    quotes: Option<Vec<String>>
 }
 
 // Parameters for updating a node
