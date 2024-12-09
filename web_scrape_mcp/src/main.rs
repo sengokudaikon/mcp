@@ -164,7 +164,7 @@ async fn main() {
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected", "get_top_tags", "get_recent_nodes", "get_tags_by_date"],
+                            "enum": ["create_root", "create_node", "update_node", "delete_node", "move_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected", "get_top_tags", "get_recent_nodes", "get_tags_by_date"],
                             "description": "The action to perform on the graph"
                         },
                         "params": {

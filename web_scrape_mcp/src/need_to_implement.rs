@@ -244,6 +244,43 @@ impl GraphManager {
         Ok(())
     }
 
+    async fn move_node(&mut self, node_idx: NodeIndex, new_parent_idx: NodeIndex, new_relation: String) -> Result<()> {
+        // Get current parent
+        let incoming: Vec<_> = self.graph.neighbors_directed(node_idx, petgraph::Direction::Incoming).collect();
+        
+        // Remove edge from old parent
+        if let Some(old_parent_idx) = incoming.first() {
+            let edges: Vec<_> = self.graph.edges_connecting(*old_parent_idx, node_idx).collect();
+            for edge in edges {
+                self.graph.remove_edge(edge.id());
+            }
+            
+            // Update old parent's child_nodes list
+            if let Some(old_parent_node) = self.graph.node_weight_mut(*old_parent_idx) {
+                let remaining_children = self.get_children(*old_parent_idx);
+                old_parent_node.child_nodes = remaining_children.iter()
+                    .map(|(_, node, _)| node.name.clone())
+                    .collect();
+                old_parent_node.date_modified = chrono::Utc::now();
+            }
+        }
+
+        // Add edge to new parent
+        self.graph.add_edge(new_parent_idx, node_idx, new_relation);
+        
+        // Update new parent's child_nodes list
+        if let Some(new_parent_node) = self.graph.node_weight_mut(new_parent_idx) {
+            let children = self.get_children(new_parent_idx);
+            new_parent_node.child_nodes = children.iter()
+                .map(|(_, node, _)| node.name.clone())
+                .collect();
+            new_parent_node.date_modified = chrono::Utc::now();
+        }
+
+        self.save().await?;
+        Ok(())
+    }
+
     async fn delete_node(&mut self, idx: NodeIndex) -> Result<()> {
         if Some(idx) == self.root {
             return Err(anyhow!("Cannot delete root node"));
@@ -595,6 +632,16 @@ fn graph_tool_info() -> GraphToolInfo {
                                 "new_metadata": {"type": "object", "additionalProperties": {"type": "string"}}
                             },
                             "required": ["node_name"]
+                        },
+                        {
+                            "type": "object",
+                            "title": "MoveNodeParams",
+                            "properties": {
+                                "node_name": { "type": "string", "description": "Name of the node to move" },
+                                "new_parent_name": { "type": "string", "description": "Name of the new parent node" },
+                                "new_relation": { "type": "string", "description": "New relationship type to the parent" }
+                            },
+                            "required": ["node_name", "new_parent_name", "new_relation"]
                         },
                         {
                             "type": "object",
