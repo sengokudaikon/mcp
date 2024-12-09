@@ -15,7 +15,7 @@ use shared_protocol_objects::{
     success_response, error_response, INVALID_PARAMS, INTERNAL_ERROR
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct DataNode {
     name: String,
     description: String,
