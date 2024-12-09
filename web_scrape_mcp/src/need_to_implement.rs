@@ -651,7 +651,7 @@ pub async fn handle_graph_tool_call(
                     
                     Ok(_) => {
                         let result = json!({"message": "Nodes connected successfully"});
-                        Ok(success_response(None, json!(CallToolResult {
+                        Ok(success_response(id.clone(), json!(CallToolResult {
                             content: vec![ToolResponseContent {
                                 type_: "text".into(),
                                 text: result.to_string(),
@@ -681,7 +681,7 @@ pub async fn handle_graph_tool_call(
                     "tags": node.tags,
                     "metadata": node.metadata
                 });
-                Ok(success_response(None, json!(CallToolResult {
+                Ok(success_response(id.clone(), json!(CallToolResult {
                     content: vec![ToolResponseContent {
                         type_: "text".into(),
                         text: node_info.to_string(),
@@ -710,7 +710,7 @@ pub async fn handle_graph_tool_call(
                         "metadata": child.metadata
                     })
                 }).collect();
-                Ok(success_response(None, json!(CallToolResult {
+                Ok(success_response(id.clone(), json!(CallToolResult {
                     content: vec![ToolResponseContent {
                         type_: "text".into(),
                         text: json!(children_info).to_string(),
