@@ -494,10 +494,14 @@ pub async fn handle_graph_tool_call(
     let action_params = params.arguments.get("params")
         .ok_or_else(|| anyhow!("Missing 'params' field"))?;
 
-    match (action, action_params) {
-        (Some("create_root"), Some(params)) => {
-            let create_params: CreateNodeParams = serde_json::from_value(params.clone())?;
-            let node = DataNode::new(create_params.name, create_params.description, create_params.content);
+    match action {
+        "create_root" => {
+            let create_params: CreateNodeParams = serde_json::from_value(action_params.clone())?;
+            let node = DataNode::new(
+                create_params.name,
+                create_params.description,
+                create_params.content
+            );
             match graph_manager.create_root(node).await {
                 Ok(idx) => {
                     let result = json!({
@@ -521,7 +525,7 @@ pub async fn handle_graph_tool_call(
                 }
             }
         }
-        (Some("create_node"), Some(params)) => {
+        "create_node" => {
             let create_params: CreateNodeParams = serde_json::from_value(params.clone())?;
             if let Some(parent_name) = create_params.parent_name {
                 if let Some((parent_idx, _)) = graph_manager.get_node_by_name(&parent_name) {
