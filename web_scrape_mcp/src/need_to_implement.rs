@@ -1,16 +1,15 @@
 use std::fs;
 use std::collections::HashMap;
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize}; 
 use petgraph::Graph;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
-use serde::ser::{Serialize, Serializer, SerializeStruct};
-use serde::de::{Deserialize, Deserializer, Visitor, MapAccess};
-use std::fmt;
+use serde::ser::{Serializer, SerializeStruct};
+use serde::de::Deserializer;
 use serde_json::{json, Value};
 use anyhow::{Result, anyhow};
 use shared_protocol_objects::{
-    JsonRpcRequest, JsonRpcResponse,
+    JsonRpcResponse,
     CallToolParams, CallToolResult,
     ToolResponseContent,
     success_response, error_response, INVALID_PARAMS, INTERNAL_ERROR
@@ -100,8 +99,21 @@ impl GraphManager {
     
 
     fn save(&self) -> Result<()> {
-        let json = serde_json::to_string(&self.graph)?;
-        Ok(fs::write(&self.path, json)?)
+        // Convert to serializable format
+        let serializable = SerializableGraph {
+            nodes: self.graph.node_indices()
+                .map(|idx| (idx, self.graph[idx].clone()))
+                .collect(),
+            edges: self.graph.edge_indices()
+                .map(|idx| {
+                    let (a, b) = self.graph.edge_endpoints(idx).unwrap();
+                    (a, b, self.graph[idx].clone())
+                })
+                .collect()
+        };
+        let json = serde_json::to_string(&serializable)?;
+        fs::write(&self.path, json)?;
+        Ok(())
     }
 
     fn create_root(&mut self, node: DataNode) -> Result<NodeIndex> {
