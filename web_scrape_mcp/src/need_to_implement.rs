@@ -3,6 +3,10 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use petgraph::Graph;
 use petgraph::graph::NodeIndex;
+use petgraph::visit::EdgeRef;
+use serde::ser::{Serialize, Serializer, SerializeStruct};
+use serde::de::{Deserialize, Deserializer, Visitor, MapAccess};
+use std::fmt;
 use serde_json::{json, Value};
 use anyhow::{Result, anyhow};
 use shared_protocol_objects::{
@@ -35,7 +39,40 @@ impl DataNode {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+// Custom serialization for Graph
+impl Serialize for Graph<DataNode, String> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Graph", 2)?;
+        state.serialize_field("nodes", &self.raw_nodes())?;
+        state.serialize_field("edges", &self.raw_edges())?;
+        state.end()
+    }
+}
+
+// Custom serialization for NodeIndex
+impl Serialize for NodeIndex {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u32(self.index() as u32)
+    }
+}
+
+// Custom deserialization for NodeIndex
+impl<'de> Deserialize<'de> for NodeIndex {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let index = u32::deserialize(deserializer)?;
+        Ok(NodeIndex::new(index as usize))
+    }
+}
+
 pub struct GraphManager {
     graph: Graph<DataNode, String>,
     root: Option<NodeIndex>,
@@ -51,7 +88,7 @@ impl GraphManager {
         })
     }
 
-    fn new(path: String) -> Self {
+    pub fn new(path: String) -> Self {
         let graph = if let Ok(data) = fs::read_to_string(&path) {
             serde_json::from_str(&data).unwrap_or_else(|_| Graph::new())
         } else {
@@ -67,7 +104,7 @@ impl GraphManager {
 
     fn save(&self) -> Result<()> {
         let json = serde_json::to_string(&self.graph)?;
-        fs::write(&self.path, json)
+        Ok(fs::write(&self.path, json)?)
     }
 
     fn create_root(&mut self, node: DataNode) -> Result<NodeIndex> {
@@ -84,7 +121,7 @@ impl GraphManager {
     }
 
     fn create_connected_node(&mut self, node: DataNode, parent: NodeIndex, rel: String) -> Result<NodeIndex> {
-        if !self.graph.contains_node(parent) {
+        if !self.graph.node_weight(parent).is_some() {
             return Err(anyhow!("Parent node not found"));
         }
         if self.node_name_exists(&node.name) {
