@@ -586,7 +586,8 @@ pub async fn handle_graph_tool_call(
                 Ok(idx) => {
                     let result = json!({
                         "message": "Root node created successfully",
-                        "node_index": idx.index()
+                        "node_index": idx.index(),
+                        "timestamp": chrono::Utc::now()
                     });
                     Ok(success_response(id.clone(), json!(CallToolResult {
                         content: vec![ToolResponseContent {
@@ -624,7 +625,8 @@ pub async fn handle_graph_tool_call(
                         Ok(idx) => {
                             let result = json!({
                                 "message": "Node created successfully",
-                                "node_index": idx.index()
+                                "node_index": idx.index(),
+                                "timestamp": chrono::Utc::now()
                             });
                             Ok(success_response(id.clone(), json!(CallToolResult {
                                 content: vec![ToolResponseContent {
