@@ -460,6 +460,7 @@ fn graph_tool_info() -> GraphToolInfo {
 pub async fn handle_graph_tool_call(
     params: CallToolParams,
     graph_manager: &mut GraphManager,
+    id: Option<Value>,
 ) -> Result<JsonRpcResponse> {
     
     let tool_info = graph_tool_info(); // Get tool info here
@@ -483,7 +484,7 @@ pub async fn handle_graph_tool_call(
                         "message": "Root node created successfully",
                         "node_index": idx.index()
                     });
-                    Ok(success_response(None, json!(CallToolResult {
+                    Ok(success_response(id.clone(), json!(CallToolResult {
                         content: vec![ToolResponseContent {
                             type_: "text".into(),
                             text: result.to_string(),
@@ -577,7 +578,7 @@ pub async fn handle_graph_tool_call(
                         })))
                     }
                     Err(e) => {
-                        Ok(error_response(None, INTERNAL_ERROR, &e.to_string()))
+                        Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
                     }
                 }
             } else {
