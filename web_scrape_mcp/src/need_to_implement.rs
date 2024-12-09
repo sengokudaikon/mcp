@@ -542,7 +542,7 @@ pub async fn handle_graph_tool_call(
                     Ok(error_response(None, INVALID_PARAMS, "Parent node not found"))
                 }
             } else {
-                Ok(error_response(None, INVALID_PARAMS, "Parent name is required to create a connected node"))
+                Ok(error_response(id.clone(), INVALID_PARAMS, "Parent name is required to create a connected node"))
             }
         }
         (Some("update_node"), Some(params)) => {
@@ -582,7 +582,7 @@ pub async fn handle_graph_tool_call(
                     }
                 }
             } else {
-                Ok(error_response(None, INVALID_PARAMS, "Node not found"))
+                Ok(error_response(id.clone(), INVALID_PARAMS, "Node not found"))
             }
         }
         (Some("delete_node"), Some(params)) => {
@@ -635,7 +635,7 @@ pub async fn handle_graph_tool_call(
                     }
                 }
             } else {
-                Ok(error_response(None, INVALID_PARAMS, "One or both nodes not found"))
+                Ok(error_response(id.clone(), INVALID_PARAMS, "One or both nodes not found"))
             }
         }
         (Some("get_node"), Some(params)) => {
@@ -689,7 +689,7 @@ pub async fn handle_graph_tool_call(
                     total: None
                 })))
             } else {
-                Ok(error_response(None, INVALID_PARAMS, "Parent node not found"))
+                Ok(error_response(id.clone(), INVALID_PARAMS, "Parent node not found"))
             }
         }
         (Some("get_nodes_by_tag"), Some(params)) => {
