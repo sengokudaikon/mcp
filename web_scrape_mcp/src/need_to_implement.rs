@@ -565,7 +565,7 @@ pub async fn handle_graph_tool_call(
                 Ok(error_response(id.clone(), INVALID_PARAMS, "Parent name is required to create a connected node"))
             }
         }
-        (Some("update_node"), Some(params)) => {
+        "update_node" => {
             let update_params: UpdateNodeParams = serde_json::from_value(params.clone())?;
             if let Some((idx, node)) = graph_manager.get_node_by_name(&update_params.node_name) {
                 let mut updated_node = DataNode::new(
@@ -605,7 +605,7 @@ pub async fn handle_graph_tool_call(
                 Ok(error_response(id.clone(), INVALID_PARAMS, "Node not found"))
             }
         }
-        (Some("delete_node"), Some(params)) => {
+        "delete_node" => {
             let delete_params: DeleteNodeParams = serde_json::from_value(params.clone())?;
             if let Some((idx, _)) = graph_manager.get_node_by_name(&delete_params.node_name) {
                 match graph_manager.delete_node(idx).await {
@@ -631,7 +631,7 @@ pub async fn handle_graph_tool_call(
                 Ok(error_response(None, INVALID_PARAMS, "Node not found"))
             }
         }
-        (Some("connect_nodes"), Some(params)) => {
+        "connect_nodes" => {
             let connect_params: ConnectNodesParams = serde_json::from_value(params.clone())?;
             if let (Some((from_idx, _)), Some((to_idx, _))) = (graph_manager.get_node_by_name(&connect_params.from_node_name), graph_manager.get_node_by_name(&connect_params.to_node_name)) {
                 match graph_manager.connect(from_idx, to_idx, connect_params.relation).await {
@@ -658,7 +658,7 @@ pub async fn handle_graph_tool_call(
                 Ok(error_response(id.clone(), INVALID_PARAMS, "One or both nodes not found"))
             }
         }
-        (Some("get_node"), Some(params)) => {
+        "get_node" => {
             let get_params: GetNodeParams = serde_json::from_value(params.clone())?;
             if let Some((_, node)) = graph_manager.get_node_by_name(&get_params.node_name) {
                 let node_info = json!({
@@ -683,7 +683,7 @@ pub async fn handle_graph_tool_call(
                 Ok(error_response(None, INVALID_PARAMS, "Node not found"))
             }
         }
-        (Some("get_children"), Some(params)) => {
+        "get_children" => {
             let get_children_params: GetChildrenParams = serde_json::from_value(params.clone())?;
             if let Some((parent_idx, _)) = graph_manager.get_node_by_name(&get_children_params.parent_node_name) {
                 let children = graph_manager.get_children(parent_idx);
@@ -712,7 +712,7 @@ pub async fn handle_graph_tool_call(
                 Ok(error_response(id.clone(), INVALID_PARAMS, "Parent node not found"))
             }
         }
-        (Some("get_nodes_by_tag"), Some(params)) => {
+        "get_nodes_by_tag" => {
             let get_by_tag_params: GetNodesByTagParams = serde_json::from_value(params.clone())?;
             let nodes = graph_manager.get_nodes_by_tag(&get_by_tag_params.tag);
             let nodes_info: Vec<_> = nodes.into_iter().map(|(_, node)| {
@@ -736,7 +736,7 @@ pub async fn handle_graph_tool_call(
                 total: None
             })))
         }
-        (Some("search_nodes"), Some(params)) => {
+        "search_nodes" => {
             let search_params: SearchNodesParams = serde_json::from_value(params.clone())?;
             let nodes = graph_manager.search_nodes(&search_params.query);
             let nodes_info: Vec<_> = nodes.into_iter().map(|(_, node)| {
@@ -760,7 +760,7 @@ pub async fn handle_graph_tool_call(
                 total: None
             })))
         }
-        (Some("get_most_connected"), Some(params)) => {
+        "get_most_connected" => {
             let most_connected_params: GetMostConnectedParams = serde_json::from_value(params.clone())?;
             let limit = most_connected_params.limit.unwrap_or(10);
             let nodes = graph_manager.get_most_connected_nodes(limit);
@@ -786,7 +786,7 @@ pub async fn handle_graph_tool_call(
                 total: None
             })))
         }
-        (Some("get_top_tags"), Some(params)) => {
+        "get_top_tags" => {
             let top_tags_params: GetTopTagsParams = serde_json::from_value(params.clone())?;
             let limit = top_tags_params.limit.unwrap_or(10);
             let tags = graph_manager.get_top_tags(limit);
@@ -808,6 +808,6 @@ pub async fn handle_graph_tool_call(
                 total: None
             })))
         }
-        _ => Ok(error_response(None, INVALID_PARAMS, "Invalid action or parameters")),
+        _ => Ok(error_response(id, INVALID_PARAMS, "Invalid action")),
     }
 }
