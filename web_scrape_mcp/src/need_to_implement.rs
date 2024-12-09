@@ -63,6 +63,7 @@ struct SerializableGraph {
     edges: Vec<(NodeIndex, NodeIndex, String)>
 }
 
+#[derive(Clone)]
 pub struct GraphManager {
     graph: Graph<DataNode, String>, 
     root: Option<NodeIndex>,
@@ -244,9 +245,15 @@ impl GraphManager {
         
         // Remove edge from old parent
         if let Some(old_parent_idx) = incoming.first() {
-            let edges: Vec<_> = self.graph.edges_connecting(*old_parent_idx, node_idx).collect();
-            for edge in edges {
-                self.graph.remove_edge(edge.id());
+            // Collect edge IDs first to avoid borrowing conflict
+            let edge_ids: Vec<_> = self.graph
+                .edges_connecting(*old_parent_idx, node_idx)
+                .map(|e| e.id())
+                .collect();
+        
+            // Then remove edges using collected IDs
+            for edge_id in edge_ids {
+                self.graph.remove_edge(edge_id);
             }
             
             // Update old parent's child list
@@ -353,7 +360,7 @@ impl GraphManager {
                 parent_node.child_nodes = actual_child_names;
                 parent_node.date_modified = chrono::Utc::now();
                 // Schedule save for next event loop iteration
-                let graph_manager = self.clone();
+                let graph_manager = (*self).clone();
                 tokio::spawn(async move {
                     if let Err(e) = graph_manager.save().await {
                         eprintln!("Failed to save graph after updating child_nodes: {}", e);
