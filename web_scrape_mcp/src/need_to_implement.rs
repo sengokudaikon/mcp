@@ -126,10 +126,10 @@ impl GraphManager {
         };
         let json = serde_json::to_string(&serializable)
             .map_err(|e| anyhow!("Failed to serialize graph: {}", e))?;
-        debug!("Writing graph data...");
+        // debug!("Writing graph data...");
         tokio::fs::write(&self.path, json).await
             .map_err(|e| anyhow!("Failed to write graph file {}: {}", self.path.display(), e))?;
-        debug!("Graph save completed successfully");
+        // debug!("Graph save completed successfully");
         Ok(())
     }
 
