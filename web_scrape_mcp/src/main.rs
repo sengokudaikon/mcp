@@ -131,7 +131,7 @@ async fn main() {
             ToolInfo {
                 name: "graph_tool".into(),
                 description: Some(
-                    "Stores and organizes information about the user in a knowledge graph. Use this to:\n\
+                    "ALWAYS RUN get_top_tags and get_most_connected NEAR THE START OF YOUR CHATS WITH THE USER AND KEEP THE GRAPH UP TO DATE AS BEST AS YOU CAN. THIS IS VERY IMPORTANT. Stores and organizes information about the user in a knowledge graph. Use this to:\n\
                     - Track user relationships and connections\n\
                     - Record user preferences and interests\n\
                     - Track important life events and milestones (birthdays, anniversaries, achievements)\n\
