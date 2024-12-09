@@ -45,7 +45,6 @@ struct MCPServerState {
     tools: Vec<ToolInfo>,
     client_capabilities: Option<ClientCapabilities>,
     client_info: Option<Implementation>,
-    graph_manager: GraphManager,
 }
 
 #[tokio::main]
@@ -56,7 +55,6 @@ async fn main() {
     let _ = std::env::var("BRAVE_API_KEY").expect("BRAVE_API_KEY environment variable must be set");
 
     let state = Arc::new(Mutex::new(MCPServerState {
-        graph_manager: GraphManager::new("knowledge_graph.json".to_string()),
         resources: vec![ResourceInfo {
             uri: "file:///example.txt".into(),
             name: "Example Text File".into(),
@@ -756,8 +754,8 @@ async fn handle_request(
                             }
                         }
                     } else if t.name == "graph_tool" {
-                        let mut guard = state.lock().await;
-                        handle_graph_tool_call(params, &mut guard.graph_manager).await
+                        let mut graph_manager = GraphManager::new("knowledge_graph.json".to_string());
+                        handle_graph_tool_call(params, &mut graph_manager).await
                     } else {
                         Some(error_response(id, -32601, "Tool not implemented"))
                     }
