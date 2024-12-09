@@ -211,14 +211,8 @@ impl GraphManager {
         let idx = self.graph.add_node(node.clone());
         self.graph.add_edge(parent, idx, rel.clone());
         
-        // Update parent's child_nodes list by getting all children
-        let children = self.get_children(parent);
-        if let Some(parent_node) = self.graph.node_weight_mut(parent) {
-            parent_node.child_nodes = children.iter()
-                .map(|(_, node, _)| node.name.clone())
-                .collect();
-            parent_node.date_modified = chrono::Utc::now();
-        }
+        // Update parent's child list
+        self.update_parent_child_list(parent);
         
         self.save().await.map_err(|e| anyhow!(
             "Failed to save graph after adding node '{}' with relation '{}' to parent {}: {}", 
@@ -255,27 +249,15 @@ impl GraphManager {
                 self.graph.remove_edge(edge.id());
             }
             
-            // Update old parent's child_nodes list
-            if let Some(old_parent_node) = self.graph.node_weight_mut(*old_parent_idx) {
-                let remaining_children = self.get_children(*old_parent_idx);
-                old_parent_node.child_nodes = remaining_children.iter()
-                    .map(|(_, node, _)| node.name.clone())
-                    .collect();
-                old_parent_node.date_modified = chrono::Utc::now();
-            }
+            // Update old parent's child list
+            self.update_parent_child_list(*old_parent_idx);
         }
 
         // Add edge to new parent
         self.graph.add_edge(new_parent_idx, node_idx, new_relation);
         
-        // Update new parent's child_nodes list
-        if let Some(new_parent_node) = self.graph.node_weight_mut(new_parent_idx) {
-            let children = self.get_children(new_parent_idx);
-            new_parent_node.child_nodes = children.iter()
-                .map(|(_, node, _)| node.name.clone())
-                .collect();
-            new_parent_node.date_modified = chrono::Utc::now();
-        }
+        // Update new parent's child list
+        self.update_parent_child_list(new_parent_idx);
 
         self.save().await?;
         Ok(())
@@ -306,14 +288,8 @@ impl GraphManager {
             self.graph.remove_node(idx)
                 .ok_or_else(|| anyhow!("Failed to remove node '{}' from graph", node_name))?;
             
-            // Then update parent's child list by getting remaining children
-            let remaining_children = self.get_children(*parent_idx);
-            if let Some(parent_node) = self.graph.node_weight_mut(*parent_idx) {
-                parent_node.child_nodes = remaining_children.iter()
-                    .map(|(_, node, _)| node.name.clone())
-                    .collect();
-                parent_node.date_modified = chrono::Utc::now();
-            }
+            // Then update parent's child list
+            self.update_parent_child_list(*parent_idx);
         } else {
             self.graph.remove_node(idx)
                 .ok_or_else(|| anyhow!("Failed to remove node '{}' from graph", node_name))?;
@@ -363,28 +339,28 @@ impl GraphManager {
                 children.push((child_idx, child_node, edge.weight().clone()));
             }
         }
-        
-        // Update parent's child_nodes list if needed
-        if let Some(parent_node) = self.graph.node_weight_mut(parent) {
-            let actual_child_names: Vec<String> = children.iter()
-                .map(|(_, node, _)| node.name.clone())
-                .collect();
+        children
+    }
+
+    fn update_parent_child_list(&mut self, parent: NodeIndex) {
+        let children = self.get_children(parent);
+        let actual_child_names: Vec<String> = children.iter()
+            .map(|(_, node, _)| node.name.clone())
+            .collect();
             
-            // Only update if lists don't match
+        if let Some(parent_node) = self.graph.node_weight_mut(parent) {
             if parent_node.child_nodes != actual_child_names {
                 parent_node.child_nodes = actual_child_names;
                 parent_node.date_modified = chrono::Utc::now();
-                // Save changes asynchronously
-                let path = self.path.clone();
+                // Schedule save for next event loop iteration
+                let graph_manager = self.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = self.save().await {
+                    if let Err(e) = graph_manager.save().await {
                         eprintln!("Failed to save graph after updating child_nodes: {}", e);
                     }
                 });
             }
         }
-        
-        children
     }
 
     // Method to get all nodes matching a tag
@@ -856,41 +832,6 @@ pub async fn handle_graph_tool_call(
                 }
             } else {
                 Ok(error_response(id.clone(), INVALID_PARAMS, "Node not found"))
-            }
-        }
-        "delete_node" => {
-            let move_params: MoveNodeParams = serde_json::from_value(action_params.clone())?;
-            
-            // Get node indices
-            let node_idx = match graph_manager.get_node_by_name(&move_params.node_name) {
-                Some((idx, _)) => idx,
-                None => return Ok(error_response(id.clone(), INVALID_PARAMS, "Node not found")),
-            };
-            
-            let new_parent_idx = match graph_manager.get_node_by_name(&move_params.new_parent_name) {
-                Some((idx, _)) => idx,
-                None => return Ok(error_response(id.clone(), INVALID_PARAMS, "New parent node not found")),
-            };
-            
-            match graph_manager.move_node(node_idx, new_parent_idx, move_params.new_relation).await {
-                Ok(()) => {
-                    let result = json!({
-                        "message": "Node moved successfully",
-                        "timestamp": chrono::Utc::now()
-                    });
-                    Ok(success_response(id.clone(), json!(CallToolResult {
-                        content: vec![ToolResponseContent {
-                            type_: "text".into(),
-                            text: result.to_string(),
-                            annotations: None,
-                        }],
-                        is_error: Some(false),
-                        _meta: None,
-                        progress: None,
-                        total: None
-                    })))
-                }
-                Err(e) => Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
             }
         }
         "delete_node" => {
