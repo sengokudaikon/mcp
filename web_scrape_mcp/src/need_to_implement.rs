@@ -210,6 +210,24 @@ impl GraphManager {
         nodes.truncate(limit);
         nodes
     }
+
+    fn get_top_tags(&self, limit: usize) -> Vec<(String, usize)> {
+        // Create a HashMap to count tag occurrences
+        let mut tag_counts: HashMap<String, usize> = HashMap::new();
+        
+        // Count occurrences of each tag
+        for node in self.graph.node_weights() {
+            for tag in &node.tags {
+                *tag_counts.entry(tag.clone()).or_insert(0) += 1;
+            }
+        }
+        
+        // Convert to vector and sort by count
+        let mut tag_vec: Vec<_> = tag_counts.into_iter().collect();
+        tag_vec.sort_by(|a, b| b.1.cmp(&a.1));
+        tag_vec.truncate(limit);
+        tag_vec
+    }
 }
 
 // Parameters for creating a new node
@@ -271,6 +289,11 @@ struct SearchNodesParams {
 
 #[derive(Deserialize)]
 struct GetMostConnectedParams {
+    limit: Option<usize>
+}
+
+#[derive(Deserialize)]
+struct GetTopTagsParams {
     limit: Option<usize>
 }
 
@@ -675,6 +698,28 @@ pub async fn handle_graph_tool_call(
                 content: vec![ToolResponseContent {
                     type_: "text".into(),
                     text: json!(nodes_info).to_string(),
+                    annotations: None,
+                }],
+                is_error: Some(false),
+                _meta: None,
+                progress: None,
+                total: None
+            })))
+        }
+        (Some("get_top_tags"), Some(params)) => {
+            let top_tags_params: GetTopTagsParams = serde_json::from_value(params.clone())?;
+            let limit = top_tags_params.limit.unwrap_or(10);
+            let tags = graph_manager.get_top_tags(limit);
+            let tags_info: Vec<_> = tags.into_iter().map(|(tag, count)| {
+                json!({
+                    "tag": tag,
+                    "count": count
+                })
+            }).collect();
+            Ok(success_response(None, json!(CallToolResult {
+                content: vec![ToolResponseContent {
+                    type_: "text".into(),
+                    text: json!(tags_info).to_string(),
                     annotations: None,
                 }],
                 is_error: Some(false),

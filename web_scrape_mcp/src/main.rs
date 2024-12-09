@@ -159,7 +159,7 @@ async fn main() {
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected"],
+                            "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected", "get_top_tags"],
                             "description": "The action to perform on the graph"
                         },
                         "params": {
@@ -265,6 +265,18 @@ async fn main() {
                                         "limit": { 
                                             "type": "integer",
                                             "description": "Maximum number of nodes to return (default: 10)",
+                                            "minimum": 1,
+                                            "maximum": 100
+                                        }
+                                    }
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "GetTopTagsParams",
+                                    "properties": {
+                                        "limit": { 
+                                            "type": "integer",
+                                            "description": "Maximum number of tags to return (default: 10)",
                                             "minimum": 1,
                                             "maximum": 100
                                         }
