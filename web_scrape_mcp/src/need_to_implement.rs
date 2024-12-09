@@ -76,17 +76,17 @@ impl GraphManager {
         
         // Try loading existing graph first
         let graph = if path.exists() {
-            debug!("Found existing graph file at {}", path.display());
+            //debug!("Found existing graph file at {}", path.display());
             match fs::read_to_string(&path) {
                 Ok(data) => {
-                    debug!("Successfully loaded graph data");
+                    //debug!("Successfully loaded graph data");
                     match serde_json::from_str(&data) {
                         Ok(serializable) => {
-                            debug!("Successfully parsed graph data");
+                            //debug!("Successfully parsed graph data");
                             serializable
                         }
                         Err(e) => {
-                            debug!("Failed to parse graph data: {}", e);
+                            //debug!("Failed to parse graph data: {}", e);
                             SerializableGraph { 
                                 nodes: vec![], 
                                 edges: vec![] 
@@ -95,7 +95,7 @@ impl GraphManager {
                     }
                 }
                 Err(e) => {
-                    debug!("Failed to read graph file: {}", e);
+                    //debug!("Failed to read graph file: {}", e);
                     SerializableGraph { 
                         nodes: vec![], 
                         edges: vec![] 
@@ -132,7 +132,7 @@ impl GraphManager {
     
 
     async fn save(&self) -> Result<()> {
-        debug!("Starting save operation to {}", self.path.display());
+        //debug!("Starting save operation to {}", self.path.display());
         // Convert to serializable format with better error handling
         let serializable = SerializableGraph {
             nodes: self.graph.node_indices()
@@ -148,10 +148,10 @@ impl GraphManager {
         };
         let json = serde_json::to_string(&serializable)
             .map_err(|e| anyhow!("Failed to serialize graph: {}", e))?;
-        // debug!("Writing graph data...");
+        // //debug!("Writing graph data...");
         tokio::fs::write(&self.path, json).await
             .map_err(|e| anyhow!("Failed to write graph file {}: {}", self.path.display(), e))?;
-        // debug!("Graph save completed successfully");
+        // //debug!("Graph save completed successfully");
         Ok(())
     }
 
