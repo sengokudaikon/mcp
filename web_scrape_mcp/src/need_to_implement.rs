@@ -497,11 +497,20 @@ pub async fn handle_graph_tool_call(
     match action {
         "create_root" => {
             let create_params: CreateNodeParams = serde_json::from_value(action_params.clone())?;
-            let node = DataNode::new(
+            let mut node = DataNode::new(
                 create_params.name,
                 create_params.description,
                 create_params.content
             );
+            
+            // Set optional fields if provided
+            if let Some(tags) = create_params.tags {
+                node.tags = tags;
+            }
+            if let Some(metadata) = create_params.metadata {
+                node.metadata = metadata;
+            }
+
             match graph_manager.create_root(node).await {
                 Ok(idx) => {
                     let result = json!({
