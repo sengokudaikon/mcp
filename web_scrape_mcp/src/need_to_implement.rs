@@ -50,7 +50,7 @@ struct SerializableGraph {
 pub struct GraphManager {
     graph: Graph<DataNode, String>, 
     root: Option<NodeIndex>,
-    path: String,
+    path: std::path::PathBuf,
 }
 
 impl GraphManager {
@@ -62,7 +62,11 @@ impl GraphManager {
         })
     }
 
-    pub fn new(path: String) -> Self {
+    pub fn new(filename: String) -> Self {
+        let path = dirs::home_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join(filename);
+            
         let graph = if let Ok(data) = fs::read_to_string(&path) {
             let serializable: SerializableGraph = serde_json::from_str(&data)
                 .unwrap_or_else(|_| SerializableGraph { 
@@ -94,7 +98,7 @@ impl GraphManager {
         let root = graph.node_indices().find(|&i| {
             graph.edges_directed(i, petgraph::Direction::Incoming).count() == 0
         });
-        Self { graph, root, path }
+        Self { graph, root, path: path.to_owned() }
     }
     
 
@@ -112,7 +116,7 @@ impl GraphManager {
                 .collect()
         };
         let json = serde_json::to_string(&serializable)?;
-        fs::write(&self.path, json)?;
+        fs::write(&self.path, json).map_err(|e| anyhow!("Failed to write graph file: {}", e))?;
         Ok(())
     }
 
