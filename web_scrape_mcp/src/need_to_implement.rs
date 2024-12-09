@@ -143,7 +143,7 @@ impl GraphManager {
         }
         let idx = self.graph.add_node(node);
         self.graph.add_edge(parent, idx, rel);
-        self.save()?;
+        self.save().await?;
         Ok(idx)
     }
 
@@ -156,7 +156,7 @@ impl GraphManager {
         }
         if let Some(n) = self.graph.node_weight_mut(idx) {
             *n = node;
-            self.save()?;
+            self.save().await?;
         }
         Ok(())
     }
@@ -171,7 +171,7 @@ impl GraphManager {
         
         if neighbors.len() == 1 && incoming.len() == 1 {
             self.graph.remove_node(idx);
-            self.save()?;
+            self.save().await?;
             Ok(())
         } else {
             Err(anyhow!("Deletion would create isolated nodes or disconnect graph"))
@@ -607,6 +607,7 @@ pub async fn handle_graph_tool_call(
             let connect_params: ConnectNodesParams = serde_json::from_value(params.clone())?;
             if let (Some((from_idx, _)), Some((to_idx, _))) = (graph_manager.get_node_by_name(&connect_params.from_node_name), graph_manager.get_node_by_name(&connect_params.to_node_name)) {
                 match graph_manager.connect(from_idx, to_idx, connect_params.relation) {
+                    
                     Ok(_) => {
                         let result = json!({"message": "Nodes connected successfully"});
                         Ok(success_response(None, json!(CallToolResult {
