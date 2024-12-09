@@ -530,7 +530,7 @@ pub async fn handle_graph_tool_call(
                     })))
                 }
                 Err(e) => {
-                    Ok(error_response(None, INTERNAL_ERROR, &e.to_string()))
+                    Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
                 }
             }
         }
@@ -637,7 +637,7 @@ pub async fn handle_graph_tool_call(
                         })))
                     }
                     Err(e) => {
-                        Ok(error_response(None, INTERNAL_ERROR, &e.to_string()))
+                        Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
                     }
                 }
             } else {
@@ -693,7 +693,7 @@ pub async fn handle_graph_tool_call(
                     total: None
                 })))
             } else {
-                Ok(error_response(None, INVALID_PARAMS, "Node not found"))
+                Ok(error_response(id.clone(), INVALID_PARAMS, "Node not found"))
             }
         }
         "get_children" => {
