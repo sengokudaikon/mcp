@@ -53,6 +53,11 @@ async fn main() {
     let _ = std::env::var("SCRAPINGBEE_API_KEY")
         .expect("SCRAPINGBEE_API_KEY environment variable must be set");
     let _ = std::env::var("BRAVE_API_KEY").expect("BRAVE_API_KEY environment variable must be set");
+    
+    let _ = std::env::var("KNOWLEDGE_GRAPH_DIR").unwrap_or_else(|_| {
+        println!("KNOWLEDGE_GRAPH_DIR not set, using default: {}", DEFAULT_GRAPH_DIR);
+        DEFAULT_GRAPH_DIR.to_string()
+    });
 
     let state = Arc::new(Mutex::new(MCPServerState {
         resources: vec![ResourceInfo {
@@ -778,6 +783,7 @@ async fn handle_request(
                             }
                         }
                     } else if t.name == "graph_tool" {
+                        // Initialize with just the filename - path will be determined from env var
                         let mut graph_manager = GraphManager::new("knowledge_graph.json".to_string());
                         match handle_graph_tool_call(params, &mut graph_manager).await {
                             Ok(resp) => Some(resp),

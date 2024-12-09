@@ -1,6 +1,8 @@
 use std::fs;
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize}; 
+
+const DEFAULT_GRAPH_DIR: &str = "/tmp/knowledge_graphs";
 use petgraph::Graph;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
@@ -61,9 +63,16 @@ impl GraphManager {
     }
 
     pub fn new(filename: String) -> Self {
-        let path = dirs::home_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join(filename);
+        // Get graph directory from env var or use default
+        let graph_dir = std::env::var("KNOWLEDGE_GRAPH_DIR")
+            .unwrap_or_else(|_| DEFAULT_GRAPH_DIR.to_string());
+        
+        // Create directory if it doesn't exist
+        std::fs::create_dir_all(&graph_dir)
+            .expect("Failed to create knowledge graph directory");
+        
+        // Build absolute path for graph file
+        let path = std::path::PathBuf::from(graph_dir).join(filename);
             
         let graph = if let Ok(data) = fs::read_to_string(&path) {
             let serializable: SerializableGraph = serde_json::from_str(&data)
