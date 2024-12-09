@@ -90,7 +90,7 @@ impl GraphManager {
                             //debug!("Successfully parsed graph data");
                             s
                         }
-                        Err(e) => {
+                        Err(_e) => {
                             //debug!("Failed to parse graph data: {}", e);
                             SerializableGraph { 
                                 nodes: vec![], 
@@ -99,7 +99,7 @@ impl GraphManager {
                         }
                     }
                 }
-                Err(e) => {
+                Err(_e) => {
                     //debug!("Failed to read graph file: {}", e);
                     SerializableGraph { 
                         nodes: vec![], 
