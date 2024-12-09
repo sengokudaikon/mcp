@@ -526,7 +526,7 @@ pub async fn handle_graph_tool_call(
             }
         }
         "create_node" => {
-            let create_params: CreateNodeParams = serde_json::from_value(params.clone())?;
+            let create_params: CreateNodeParams = serde_json::from_value(action_params.clone())?;
             if let Some(parent_name) = create_params.parent_name {
                 if let Some((parent_idx, _)) = graph_manager.get_node_by_name(&parent_name) {
                     let mut node = DataNode::new(create_params.name, create_params.description, create_params.content);
@@ -570,7 +570,7 @@ pub async fn handle_graph_tool_call(
             }
         }
         "update_node" => {
-            let update_params: UpdateNodeParams = serde_json::from_value(params.clone())?;
+            let update_params: UpdateNodeParams = serde_json::from_value(action_params.clone())?;
             if let Some((idx, node)) = graph_manager.get_node_by_name(&update_params.node_name) {
                 let mut updated_node = DataNode::new(
                     update_params.new_name.unwrap_or_else(|| node.name.clone()),
@@ -610,7 +610,7 @@ pub async fn handle_graph_tool_call(
             }
         }
         "delete_node" => {
-            let delete_params: DeleteNodeParams = serde_json::from_value(params.clone())?;
+            let delete_params: DeleteNodeParams = serde_json::from_value(action_params.clone())?;
             if let Some((idx, _)) = graph_manager.get_node_by_name(&delete_params.node_name) {
                 match graph_manager.delete_node(idx).await {
                     Ok(_) => {
@@ -636,7 +636,7 @@ pub async fn handle_graph_tool_call(
             }
         }
         "connect_nodes" => {
-            let connect_params: ConnectNodesParams = serde_json::from_value(params.clone())?;
+            let connect_params: ConnectNodesParams = serde_json::from_value(action_params.clone())?;
             if let (Some((from_idx, _)), Some((to_idx, _))) = (graph_manager.get_node_by_name(&connect_params.from_node_name), graph_manager.get_node_by_name(&connect_params.to_node_name)) {
                 match graph_manager.connect(from_idx, to_idx, connect_params.relation).await {
                     
@@ -663,7 +663,7 @@ pub async fn handle_graph_tool_call(
             }
         }
         "get_node" => {
-            let get_params: GetNodeParams = serde_json::from_value(params.clone())?;
+            let get_params: GetNodeParams = serde_json::from_value(action_params.clone())?;
             if let Some((_, node)) = graph_manager.get_node_by_name(&get_params.node_name) {
                 let node_info = json!({
                     "name": node.name,
@@ -688,7 +688,7 @@ pub async fn handle_graph_tool_call(
             }
         }
         "get_children" => {
-            let get_children_params: GetChildrenParams = serde_json::from_value(params.clone())?;
+            let get_children_params: GetChildrenParams = serde_json::from_value(action_params.clone())?;
             if let Some((parent_idx, _)) = graph_manager.get_node_by_name(&get_children_params.parent_node_name) {
                 let children = graph_manager.get_children(parent_idx);
                 let children_info: Vec<_> = children.into_iter().map(|(_, child, relation)| {
@@ -717,7 +717,7 @@ pub async fn handle_graph_tool_call(
             }
         }
         "get_nodes_by_tag" => {
-            let get_by_tag_params: GetNodesByTagParams = serde_json::from_value(params.clone())?;
+            let get_by_tag_params: GetNodesByTagParams = serde_json::from_value(action_params.clone())?;
             let nodes = graph_manager.get_nodes_by_tag(&get_by_tag_params.tag);
             let nodes_info: Vec<_> = nodes.into_iter().map(|(_, node)| {
                 json!({
@@ -741,7 +741,7 @@ pub async fn handle_graph_tool_call(
             })))
         }
         "search_nodes" => {
-            let search_params: SearchNodesParams = serde_json::from_value(params.clone())?;
+            let search_params: SearchNodesParams = serde_json::from_value(action_params.clone())?;
             let nodes = graph_manager.search_nodes(&search_params.query);
             let nodes_info: Vec<_> = nodes.into_iter().map(|(_, node)| {
                 json!({
@@ -765,7 +765,7 @@ pub async fn handle_graph_tool_call(
             })))
         }
         "get_most_connected" => {
-            let most_connected_params: GetMostConnectedParams = serde_json::from_value(params.clone())?;
+            let most_connected_params: GetMostConnectedParams = serde_json::from_value(action_params.clone())?;
             let limit = most_connected_params.limit.unwrap_or(10);
             let nodes = graph_manager.get_most_connected_nodes(limit);
             let nodes_info: Vec<_> = nodes.into_iter().map(|(_, node, edge_count)| {
@@ -791,7 +791,7 @@ pub async fn handle_graph_tool_call(
             })))
         }
         "get_top_tags" => {
-            let top_tags_params: GetTopTagsParams = serde_json::from_value(params.clone())?;
+            let top_tags_params: GetTopTagsParams = serde_json::from_value(action_params.clone())?;
             let limit = top_tags_params.limit.unwrap_or(10);
             let tags = graph_manager.get_top_tags(limit);
             let tags_info: Vec<_> = tags.into_iter().map(|(tag, count)| {
