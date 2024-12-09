@@ -40,41 +40,16 @@ impl DataNode {
 }
 
 // Custom serialization for Graph
-impl Serialize for Graph<DataNode, String> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("Graph", 2)?;
-        state.serialize_field("nodes", &self.raw_nodes())?;
-        state.serialize_field("edges", &self.raw_edges())?;
-        state.end()
-    }
-}
+// We'll use petgraph's built-in serde support instead of custom impls
 
-// Custom serialization for NodeIndex
-impl Serialize for NodeIndex {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_u32(self.index() as u32)
-    }
-}
-
-// Custom deserialization for NodeIndex
-impl<'de> Deserialize<'de> for NodeIndex {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let index = u32::deserialize(deserializer)?;
-        Ok(NodeIndex::new(index as usize))
-    }
+#[derive(Serialize, Deserialize)]
+struct SerializableGraph {
+    nodes: Vec<(NodeIndex, DataNode)>,
+    edges: Vec<(NodeIndex, NodeIndex, String)>
 }
 
 pub struct GraphManager {
-    graph: Graph<DataNode, String>,
+    graph: Graph<DataNode, String>, 
     root: Option<NodeIndex>,
     path: String,
 }
@@ -90,12 +65,34 @@ impl GraphManager {
 
     pub fn new(path: String) -> Self {
         let graph = if let Ok(data) = fs::read_to_string(&path) {
-            serde_json::from_str(&data).unwrap_or_else(|_| Graph::new())
+            let serializable: SerializableGraph = serde_json::from_str(&data)
+                .unwrap_or_else(|_| SerializableGraph { 
+                    nodes: vec![], 
+                    edges: vec![] 
+                });
+            
+            let mut graph = Graph::new();
+            // Restore nodes
+            for (idx, node) in serializable.nodes {
+                while graph.node_count() <= idx.index() {
+                    graph.add_node(DataNode::new(
+                        String::new(),
+                        String::new(),
+                        String::new()
+                    ));
+                }
+                graph[idx] = node;
+            }
+            // Restore edges
+            for (from, to, weight) in serializable.edges {
+                graph.add_edge(from, to, weight);
+            }
+            graph
         } else {
             Graph::new()
         };
+        
         let root = graph.node_indices().find(|&i| {
-            // Find the root node (a node with no incoming edges)
             graph.edges_directed(i, petgraph::Direction::Incoming).count() == 0
         });
         Self { graph, root, path }
