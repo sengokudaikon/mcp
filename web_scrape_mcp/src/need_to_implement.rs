@@ -183,7 +183,12 @@ impl GraphManager {
             return Err(anyhow!("Parent node index {} not found in graph", parent.index()));
         }
         if self.node_name_exists(&node.name) {
-            return Err(anyhow!("Node with name '{}' already exists", node.name));
+            let connected_nodes = self.get_most_connected_nodes(10)
+                .iter()
+                .map(|(_, node, count)| format!("- {} ({} connections)", node.name, count))
+                .collect::<Vec<_>>()
+                .join("\n");
+            return Err(anyhow!("Node with name '{}' already exists.\n\nMost connected nodes for reference:\n{}", node.name, connected_nodes));
         }
         let idx = self.graph.add_node(node.clone());
         self.graph.add_edge(parent, idx, rel.clone());
