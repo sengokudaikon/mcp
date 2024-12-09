@@ -369,6 +369,44 @@ impl GraphManager {
         tag_vec.truncate(limit);
         tag_vec
     }
+
+    fn get_tags_by_date(&self, limit: usize) -> (Vec<(String, chrono::DateTime<chrono::Utc>)>, Vec<(String, chrono::DateTime<chrono::Utc>)>) {
+        let mut tag_dates: HashMap<String, Vec<chrono::DateTime<chrono::Utc>>> = HashMap::new();
+        
+        // Collect all dates for each tag
+        for node in self.graph.node_weights() {
+            for tag in &node.tags {
+                tag_dates.entry(tag.clone())
+                    .or_default()
+                    .push(node.date_created);
+            }
+        }
+
+        // Convert to vectors with earliest/latest date per tag
+        let mut tag_vec: Vec<_> = tag_dates.into_iter()
+            .map(|(tag, mut dates)| {
+                dates.sort();
+                (tag, dates[0], *dates.last().unwrap())
+            })
+            .collect();
+
+        // Get recent tags (sorted by newest date)
+        let mut recent_tags = tag_vec.clone();
+        recent_tags.sort_by(|a, b| b.2.cmp(&a.2));
+        let recent = recent_tags.into_iter()
+            .take(limit)
+            .map(|(tag, _, date)| (tag, date))
+            .collect();
+
+        // Get oldest tags (sorted by oldest date)
+        tag_vec.sort_by(|a, b| a.1.cmp(&b.1));
+        let oldest = tag_vec.into_iter()
+            .take(limit)
+            .map(|(tag, date, _)| (tag, date))
+            .collect();
+
+        (recent, oldest)
+    }
 }
 
 // Parameters for creating a new node
@@ -435,6 +473,11 @@ struct GetMostConnectedParams {
 
 #[derive(Deserialize)]
 struct GetTopTagsParams {
+    limit: Option<usize>
+}
+
+#[derive(Deserialize)]
+struct GetTagsByDateParams {
     limit: Option<usize>
 }
 
@@ -900,6 +943,39 @@ pub async fn handle_graph_tool_call(
                 content: vec![ToolResponseContent {
                     type_: "text".into(),
                     text: json!(tags_info).to_string(),
+                    annotations: None,
+                }],
+                is_error: Some(false),
+                _meta: None,
+                progress: None,
+                total: None
+            })))
+        }
+        "get_tags_by_date" => {
+            let params: GetTagsByDateParams = serde_json::from_value(action_params.clone())?;
+            let limit = params.limit.unwrap_or(30);
+            let (recent_tags, oldest_tags) = graph_manager.get_tags_by_date(limit);
+            
+            let result = json!({
+                "recent_tags": recent_tags.into_iter().map(|(tag, date)| {
+                    json!({
+                        "tag": tag,
+                        "date": date,
+                    })
+                }).collect::<Vec<_>>(),
+                "oldest_tags": oldest_tags.into_iter().map(|(tag, date)| {
+                    json!({
+                        "tag": tag,
+                        "date": date,
+                    })
+                }).collect::<Vec<_>>(),
+                "timestamp": chrono::Utc::now()
+            });
+            
+            Ok(success_response(id.clone(), json!(CallToolResult {
+                content: vec![ToolResponseContent {
+                    type_: "text".into(),
+                    text: result.to_string(),
                     annotations: None,
                 }],
                 is_error: Some(false),

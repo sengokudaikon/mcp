@@ -131,7 +131,7 @@ async fn main() {
             ToolInfo {
                 name: "graph_tool".into(),
                 description: Some(
-                    "ALWAYS RUN get_top_tags and get_most_connected NEAR THE START OF YOUR CHATS WITH THE USER AND KEEP THE GRAPH UP TO DATE AS BEST AS YOU CAN. THIS IS VERY IMPORTANT. Stores and organizes information about the user in a knowledge graph. Use this to:\n\
+                    "ALWAYS RUN get_top_tags, get_tags_by_date, and get_most_connected NEAR THE START OF YOUR CHATS WITH THE USER AND KEEP THE GRAPH UP TO DATE AS BEST AS YOU CAN. THIS IS VERY IMPORTANT. Stores and organizes information about the user in a knowledge graph. Use this to:\n\
                     - Track user relationships and connections\n\
                     - Record user preferences and interests\n\
                     - Track important life events and milestones (birthdays, anniversaries, achievements)\n\
@@ -157,7 +157,7 @@ async fn main() {
                     "properties": {
                         "action": {
                             "type": "string",
-                            "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected", "get_top_tags", "get_recent_nodes"],
+                            "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected", "get_top_tags", "get_recent_nodes", "get_tags_by_date"],
                             "description": "The action to perform on the graph"
                         },
                         "params": {
