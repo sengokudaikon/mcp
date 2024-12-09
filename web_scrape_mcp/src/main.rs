@@ -131,7 +131,9 @@ async fn main() {
             ToolInfo {
                 name: "graph_tool".into(),
                 description: Some(
-                    "ALWAYS RUN get_top_tags, get_tags_by_date, and get_most_connected NEAR THE START OF YOUR CHATS WITH THE USER AND KEEP THE GRAPH UP TO DATE AS BEST AS YOU CAN. THIS IS VERY IMPORTANT. Stores and organizes information about the user in a knowledge graph. Use this to:\n\
+                    "ALWAYS RUN get_top_tags, get_tags_by_date, and get_most_connected NEAR THE START OF YOUR CHATS WITH THE USER AND KEEP THE GRAPH UP TO DATE AS BEST AS YOU CAN. THIS IS VERY IMPORTANT. \
+                    BEFORE ASKING THE USER QUESTIONS, SEARCH THE GRAPH USING search_nodes AND get_nodes_by_tag TO DISCOVER WHAT YOU ALREADY KNOW ABOUT THEM! \
+                    Stores and organizes information about the user in a knowledge graph. Use this to:\n\
                     - Track user relationships and connections\n\
                     - Record user preferences and interests\n\
                     - Track important life events and milestones (birthdays, anniversaries, achievements)\n\
@@ -149,6 +151,11 @@ async fn main() {
                     - Track user's information sources and trusted references\n\
                     - Record significant dates (past and upcoming events)\n\
                     - Monitor time-based patterns and routines\n\
+                    SEARCH STRATEGY:\n\
+                    1. Use search_nodes with relevant keywords to find related information\n\
+                    2. Use get_nodes_by_tag to find nodes with specific categories\n\
+                    3. Use get_children to explore connected information\n\
+                    4. Look for patterns using get_most_connected and get_top_tags\n\
                     Any information relevant to understanding and assisting the user should be stored here \
                     for future reference and relationship building."
                 .into()),
