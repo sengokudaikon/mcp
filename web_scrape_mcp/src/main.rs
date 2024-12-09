@@ -134,10 +134,21 @@ async fn main() {
                     "Stores and organizes information about the user in a knowledge graph. Use this to:\n\
                     - Track user relationships and connections\n\
                     - Record user preferences and interests\n\
-                    - Store important dates and events\n\
+                    - Track important life events and milestones (birthdays, anniversaries, achievements)\n\
                     - Document user's work and projects\n\
                     - Keep track of user's goals and progress\n\
                     - Maintain history of user interactions\n\
+                    - Map user's skill development and learning paths\n\
+                    - Track recurring patterns in user behavior\n\
+                    - Document user's decision-making history\n\
+                    - Store user's communication style preferences\n\
+                    - Track user's problem-solving approaches\n\
+                    - Map user's professional network\n\
+                    - Document user's preferred tools and workflows\n\
+                    - Store user's scheduling patterns and preferences\n\
+                    - Track user's information sources and trusted references\n\
+                    - Record significant dates (past and upcoming events)\n\
+                    - Monitor time-based patterns and routines\n\
                     Any information relevant to understanding and assisting the user should be stored here \
                     for future reference and relationship building."
                 .into()),
