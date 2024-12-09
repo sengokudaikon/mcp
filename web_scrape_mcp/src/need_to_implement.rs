@@ -23,17 +23,22 @@ struct DataNode {
     #[serde(default)]
     metadata: HashMap<String, String>,
     #[serde(default)]
-    tags: Vec<String>, 
+    tags: Vec<String>,
+    date_created: chrono::DateTime<chrono::Utc>,
+    date_modified: chrono::DateTime<chrono::Utc>,
 }
 
 impl DataNode {
     fn new(name: String, description: String, content: String) -> Self {
+        let now = chrono::Utc::now();
         DataNode {
             name,
             description,
             content,
             metadata: HashMap::new(),
-            tags: Vec::new()
+            tags: Vec::new(),
+            date_created: now,
+            date_modified: now,
         }
     }
 }
@@ -207,7 +212,10 @@ impl GraphManager {
             }
         }
         if let Some(n) = self.graph.node_weight_mut(idx) {
+            let date_created = n.date_created; // Preserve original creation date
             *n = node;
+            n.date_created = date_created; // Restore creation date
+            n.date_modified = chrono::Utc::now();
             self.save().await?;
         }
         Ok(())
@@ -326,6 +334,19 @@ impl GraphManager {
         nodes
     }
 
+    fn get_recent_nodes(&self, limit: usize) -> Vec<(NodeIndex, &DataNode)> {
+        let mut nodes: Vec<_> = self.graph.node_indices()
+            .filter_map(|idx| {
+                self.graph.node_weight(idx).map(|node| (idx, node))
+            })
+            .collect();
+        
+        // Sort by modified date in descending order
+        nodes.sort_by(|a, b| b.1.date_modified.cmp(&a.1.date_modified));
+        nodes.truncate(limit);
+        nodes
+    }
+
     fn get_top_tags(&self, limit: usize) -> Vec<(String, usize)> {
         // Create a HashMap to count tag occurrences
         let mut tag_counts: HashMap<String, usize> = HashMap::new();
@@ -409,6 +430,11 @@ struct GetMostConnectedParams {
 
 #[derive(Deserialize)]
 struct GetTopTagsParams {
+    limit: Option<usize>
+}
+
+#[derive(Deserialize)]
+struct GetRecentNodesParams {
     limit: Option<usize>
 }
 
@@ -853,6 +879,33 @@ pub async fn handle_graph_tool_call(
                 content: vec![ToolResponseContent {
                     type_: "text".into(),
                     text: json!(tags_info).to_string(),
+                    annotations: None,
+                }],
+                is_error: Some(false),
+                _meta: None,
+                progress: None,
+                total: None
+            })))
+        }
+        "get_recent_nodes" => {
+            let recent_params: GetRecentNodesParams = serde_json::from_value(action_params.clone())?;
+            let limit = recent_params.limit.unwrap_or(10);
+            let nodes = graph_manager.get_recent_nodes(limit);
+            let nodes_info: Vec<_> = nodes.into_iter().map(|(_, node)| {
+                json!({
+                    "name": node.name,
+                    "description": node.description,
+                    "content": node.content,
+                    "tags": node.tags,
+                    "metadata": node.metadata,
+                    "date_created": node.date_created,
+                    "date_modified": node.date_modified
+                })
+            }).collect();
+            Ok(success_response(id.clone(), json!(CallToolResult {
+                content: vec![ToolResponseContent {
+                    type_: "text".into(),
+                    text: json!(nodes_info).to_string(),
                     annotations: None,
                 }],
                 is_error: Some(false),
