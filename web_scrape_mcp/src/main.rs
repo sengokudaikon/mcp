@@ -85,18 +85,8 @@ async fn main() {
             ToolInfo {
                 name: "scrape_url".into(),
                 description: Some(
-                    "Use this tool when you need to read, analyze, or extract information from a webpage. \
-                    Perfect for when a user asks you to:\n\
-                    - Read and summarize an article or blog post\n\
-                    - Extract text from a documentation page\n\
-                    - Analyze the content of a product page\n\
-                    - Get information from a news site\n\
-                    - Read technical documentation\n\
-                    - Extract code examples from tutorials\n\
-                    - Get text from pages that might block normal scraping\n\
-                    - Capture text from dynamic JavaScript-rendered content\n\
-                    The tool takes a screenshot of the full webpage, processes it with OCR, and returns all visible text. \
-                    Use this when you need to actually read the contents of a webpage, not just search for information.".into()
+                    "Extracts and analyzes text content from webpages. Handles JavaScript-rendered content \
+                    and blocked pages using OCR. Use for reading articles, documentation, or any web content.".into()
                 ),
                 input_schema: json!({
                     "type": "object",
@@ -114,19 +104,9 @@ async fn main() {
             ToolInfo {
                 name: "brave_search".into(),
                 description: Some(
-                    "Use this tool when you need to search the internet for information. Perfect for when a user:\n\
-                    - Asks about current events or news\n\
-                    - Needs up-to-date information about a topic\n\
-                    - Wants to find specific websites or resources\n\
-                    - Needs to verify facts or claims\n\
-                    - Wants to discover articles about a subject\n\
-                    - Needs to find documentation or tutorials\n\
-                    - Wants to research products or services\n\
-                    - Needs recent information not in your training data\n\
-                    - Asks about trends or developments\n\
-                    - Wants to find discussions or forums about a topic\n\
-                    Use this tool first to find relevant URLs, then use scrape_url to read specific pages in detail. \
-                    This tool returns a list of search results with titles, URLs, and brief descriptions.".into()
+                    "Searches the internet for current information. Returns relevant URLs with titles and descriptions. \
+                    Use for finding news, resources, documentation, or researching any topic. \
+                    Follow up with scrape_url to read specific pages.".into()
                 ),
                 input_schema: json!({
                     "type": "object",
@@ -151,13 +131,15 @@ async fn main() {
             ToolInfo {
                 name: "graph_tool".into(),
                 description: Some(
-                    "A tool for managing and interacting with a knowledge graph. Use this tool to:\n\
-                    - Create and organize information nodes\n\
-                    - Build relationships between pieces of information\n\
-                    - Tag and categorize content\n\
-                    - Search through connected information\n\
-                    - Build a structured knowledge base\n\
-                    Each node can contain content, description, tags, and metadata, and can be connected to other nodes with labeled relationships."
+                    "Stores and organizes information about the user in a knowledge graph. Use this to:\n\
+                    - Track user relationships and connections\n\
+                    - Record user preferences and interests\n\
+                    - Store important dates and events\n\
+                    - Document user's work and projects\n\
+                    - Keep track of user's goals and progress\n\
+                    - Maintain history of user interactions\n\
+                    Any information relevant to understanding and assisting the user should be stored here \
+                    for future reference and relationship building."
                 .into()),
                 input_schema: json!({
                     "type": "object",
