@@ -110,6 +110,7 @@ impl GraphManager {
     
 
     async fn save(&self) -> Result<()> {
+        debug!("Starting save operation to {}", self.path.display());
         // Convert to serializable format with better error handling
         let serializable = SerializableGraph {
             nodes: self.graph.node_indices()
@@ -125,8 +126,10 @@ impl GraphManager {
         };
         let json = serde_json::to_string(&serializable)
             .map_err(|e| anyhow!("Failed to serialize graph: {}", e))?;
+        debug!("Writing graph data...");
         tokio::fs::write(&self.path, json).await
             .map_err(|e| anyhow!("Failed to write graph file {}: {}", self.path.display(), e))?;
+        debug!("Graph save completed successfully");
         Ok(())
     }
 
@@ -664,7 +667,7 @@ pub async fn handle_graph_tool_call(
                         })))
                     }
                     Err(e) => {
-                        Ok(error_response(None, INTERNAL_ERROR, &e.to_string()))
+                        Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
                     }
                 }
             } else {
