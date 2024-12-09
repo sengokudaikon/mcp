@@ -1,4 +1,6 @@
 mod processor;
+mod need_to_implement;
+use need_to_implement::{GraphManager, handle_graph_tool_call};
 use shared_protocol_objects::{
     ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
     InitializeResult, ClientCapabilities,
@@ -43,6 +45,7 @@ struct MCPServerState {
     tools: Vec<ToolInfo>,
     client_capabilities: Option<ClientCapabilities>,
     client_info: Option<Implementation>,
+    graph_manager: GraphManager,
 }
 
 #[tokio::main]
@@ -53,6 +56,7 @@ async fn main() {
     let _ = std::env::var("BRAVE_API_KEY").expect("BRAVE_API_KEY environment variable must be set");
 
     let state = Arc::new(Mutex::new(MCPServerState {
+        graph_manager: GraphManager::new("knowledge_graph.json".to_string()),
         resources: vec![ResourceInfo {
             uri: "file:///example.txt".into(),
             name: "Example Text File".into(),
@@ -139,6 +143,127 @@ async fn main() {
                     },
                     "required": ["query"],
                     "additionalProperties": false
+                }),
+            },
+            ToolInfo {
+                name: "graph_tool".into(),
+                description: Some(
+                    "A tool for managing and interacting with a knowledge graph. Use this tool to:\n\
+                    - Create and organize information nodes\n\
+                    - Build relationships between pieces of information\n\
+                    - Tag and categorize content\n\
+                    - Search through connected information\n\
+                    - Build a structured knowledge base\n\
+                    Each node can contain content, description, tags, and metadata, and can be connected to other nodes with labeled relationships."
+                .into()),
+                input_schema: json!({
+                    "type": "object",
+                    "properties": {
+                        "action": {
+                            "type": "string",
+                            "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes"],
+                            "description": "The action to perform on the graph"
+                        },
+                        "params": {
+                            "type": "object",
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "title": "CreateNodeParams",
+                                    "properties": {
+                                        "name": { "type": "string", "description": "Name of the node" },
+                                        "description": { "type": "string", "description": "Description of the node" },
+                                        "content": { "type": "string", "description": "Main content of the node" },
+                                        "parent_name": { "type": "string", "description": "Name of the parent node (not needed for create_root)" },
+                                        "relation": { "type": "string", "description": "Type of relationship to parent node" },
+                                        "tags": { 
+                                            "type": "array", 
+                                            "items": { "type": "string" },
+                                            "description": "Tags for categorizing the node"
+                                        },
+                                        "metadata": { 
+                                            "type": "object",
+                                            "additionalProperties": { "type": "string" },
+                                            "description": "Additional metadata key-value pairs"
+                                        }
+                                    },
+                                    "required": ["name", "description", "content"]
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "UpdateNodeParams",
+                                    "properties": {
+                                        "node_name": { "type": "string", "description": "Name of the node to update" },
+                                        "new_name": { "type": "string", "description": "New name for the node" },
+                                        "new_description": { "type": "string", "description": "New description for the node" },
+                                        "new_content": { "type": "string", "description": "New content for the node" },
+                                        "new_tags": { 
+                                            "type": "array", 
+                                            "items": { "type": "string" },
+                                            "description": "New tags for the node"
+                                        },
+                                        "new_metadata": { 
+                                            "type": "object",
+                                            "additionalProperties": { "type": "string" },
+                                            "description": "New metadata key-value pairs"
+                                        }
+                                    },
+                                    "required": ["node_name"]
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "DeleteNodeParams",
+                                    "properties": {
+                                        "node_name": { "type": "string", "description": "Name of the node to delete" }
+                                    },
+                                    "required": ["node_name"]
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "ConnectNodesParams",
+                                    "properties": {
+                                        "from_node_name": { "type": "string", "description": "Name of the source node" },
+                                        "to_node_name": { "type": "string", "description": "Name of the target node" },
+                                        "relation": { "type": "string", "description": "Type of relationship between nodes" }
+                                    },
+                                    "required": ["from_node_name", "to_node_name", "relation"]
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "GetNodeParams",
+                                    "properties": {
+                                        "node_name": { "type": "string", "description": "Name of the node to retrieve" }
+                                    },
+                                    "required": ["node_name"]
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "GetChildrenParams",
+                                    "properties": {
+                                        "parent_node_name": { "type": "string", "description": "Name of the parent node" }
+                                    },
+                                    "required": ["parent_node_name"]
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "GetNodesByTagParams",
+                                    "properties": {
+                                        "tag": { "type": "string", "description": "Tag to search for" }
+                                    },
+                                    "required": ["tag"]
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "SearchNodesParams",
+                                    "properties": {
+                                        "query": { "type": "string", "description": "Search query to match against node names and descriptions" }
+                                    },
+                                    "required": ["query"]
+                                }
+                            ]
+                        }
+                    },
+                    "required": ["action", "params"]
                 }),
             }
         ],
@@ -630,6 +755,9 @@ async fn handle_request(
                                 Some(success_response(id, json!(tool_res)))
                             }
                         }
+                    } else if t.name == "graph_tool" {
+                        let mut guard = state.lock().await;
+                        handle_graph_tool_call(params, &mut guard.graph_manager).await
                     } else {
                         Some(error_response(id, -32601, "Tool not implemented"))
                     }
