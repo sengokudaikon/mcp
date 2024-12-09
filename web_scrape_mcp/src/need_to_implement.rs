@@ -390,7 +390,7 @@ fn graph_tool_info() -> GraphToolInfo {
                 "action": {
                     "type": "string",
                     "description": "The action to perform.",
-                    "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes"]
+                    "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected", "get_top_tags"]
                 },
                 "params": {
                     "type": "object",
@@ -555,7 +555,7 @@ pub async fn handle_graph_tool_call(
                                 "message": "Node created successfully",
                                 "node_index": idx.index()
                             });
-                            Ok(success_response(None, json!(CallToolResult {
+                            Ok(success_response(id.clone(), json!(CallToolResult {
                                 content: vec![ToolResponseContent {
                                     type_: "text".into(),
                                     text: result.to_string(),
@@ -568,11 +568,11 @@ pub async fn handle_graph_tool_call(
                             })))
                         }
                         Err(e) => {
-                            Ok(error_response(None, INTERNAL_ERROR, &e.to_string()))
+                            Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
                         }
                     }
                 } else {
-                    Ok(error_response(None, INVALID_PARAMS, "Parent node not found"))
+                    Ok(error_response(id.clone(), INVALID_PARAMS, "Parent node not found"))
                 }
             } else {
                 Ok(error_response(id.clone(), INVALID_PARAMS, "Parent name is required to create a connected node"))
@@ -598,7 +598,7 @@ pub async fn handle_graph_tool_call(
                 match graph_manager.update_node(idx, updated_node).await {
                     Ok(_) => {
                         let result = json!({"message": "Node updated successfully"});
-                        Ok(success_response(None, json!(CallToolResult {
+                        Ok(success_response(id.clone(), json!(CallToolResult {
                             content: vec![ToolResponseContent {
                                 type_: "text".into(),
                                 text: result.to_string(),
@@ -624,7 +624,7 @@ pub async fn handle_graph_tool_call(
                 match graph_manager.delete_node(idx).await {
                     Ok(_) => {
                         let result = json!({"message": "Node deleted successfully"});
-                        Ok(success_response(None, json!(CallToolResult {
+                        Ok(success_response(id.clone(), json!(CallToolResult {
                             content: vec![ToolResponseContent {
                                 type_: "text".into(),
                                 text: result.to_string(),
@@ -641,7 +641,7 @@ pub async fn handle_graph_tool_call(
                     }
                 }
             } else {
-                Ok(error_response(None, INVALID_PARAMS, "Node not found"))
+                Ok(error_response(id.clone(), INVALID_PARAMS, "Node not found"))
             }
         }
         "connect_nodes" => {
@@ -737,7 +737,7 @@ pub async fn handle_graph_tool_call(
                     "metadata": node.metadata
                 })
             }).collect();
-            Ok(success_response(None, json!(CallToolResult {
+            Ok(success_response(id.clone(), json!(CallToolResult {
                 content: vec![ToolResponseContent {
                     type_: "text".into(),
                     text: json!(nodes_info).to_string(),
@@ -761,7 +761,7 @@ pub async fn handle_graph_tool_call(
                     "metadata": node.metadata
                 })
             }).collect();
-            Ok(success_response(None, json!(CallToolResult {
+            Ok(success_response(id.clone(), json!(CallToolResult {
                 content: vec![ToolResponseContent {
                     type_: "text".into(),
                     text: json!(nodes_info).to_string(),
@@ -787,7 +787,7 @@ pub async fn handle_graph_tool_call(
                     "connection_count": edge_count
                 })
             }).collect();
-            Ok(success_response(None, json!(CallToolResult {
+            Ok(success_response(id.clone(), json!(CallToolResult {
                 content: vec![ToolResponseContent {
                     type_: "text".into(),
                     text: json!(nodes_info).to_string(),
@@ -809,7 +809,7 @@ pub async fn handle_graph_tool_call(
                     "count": count
                 })
             }).collect();
-            Ok(success_response(None, json!(CallToolResult {
+            Ok(success_response(id.clone(), json!(CallToolResult {
                 content: vec![ToolResponseContent {
                     type_: "text".into(),
                     text: json!(tags_info).to_string(),
