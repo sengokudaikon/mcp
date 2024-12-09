@@ -668,7 +668,10 @@ pub async fn handle_graph_tool_call(
 
                 match graph_manager.update_node(idx, updated_node).await {
                     Ok(_) => {
-                        let result = json!({"message": "Node updated successfully"});
+                        let result = json!({
+                            "message": "Node updated successfully",
+                            "timestamp": chrono::Utc::now()
+                        });
                         Ok(success_response(id.clone(), json!(CallToolResult {
                             content: vec![ToolResponseContent {
                                 type_: "text".into(),
@@ -694,7 +697,10 @@ pub async fn handle_graph_tool_call(
             if let Some((idx, _)) = graph_manager.get_node_by_name(&delete_params.node_name) {
                 match graph_manager.delete_node(idx).await {
                     Ok(_) => {
-                        let result = json!({"message": "Node deleted successfully"});
+                        let result = json!({
+                            "message": "Node deleted successfully",
+                            "timestamp": chrono::Utc::now()
+                        });
                         Ok(success_response(id.clone(), json!(CallToolResult {
                             content: vec![ToolResponseContent {
                                 type_: "text".into(),
@@ -721,7 +727,10 @@ pub async fn handle_graph_tool_call(
                 match graph_manager.connect(from_idx, to_idx, connect_params.relation).await {
                     
                     Ok(_) => {
-                        let result = json!({"message": "Nodes connected successfully"});
+                        let result = json!({
+                            "message": "Nodes connected successfully",
+                            "timestamp": chrono::Utc::now()
+                        });
                         Ok(success_response(id.clone(), json!(CallToolResult {
                             content: vec![ToolResponseContent {
                                 type_: "text".into(),
@@ -750,7 +759,8 @@ pub async fn handle_graph_tool_call(
                     "description": node.description,
                     "content": node.content,
                     "tags": node.tags,
-                    "metadata": node.metadata
+                    "metadata": node.metadata,
+                    "timestamp": chrono::Utc::now()
                 });
                 Ok(success_response(id.clone(), json!(CallToolResult {
                     content: vec![ToolResponseContent {
@@ -778,7 +788,8 @@ pub async fn handle_graph_tool_call(
                         "content": child.content,
                         "relation": relation,
                         "tags": child.tags,
-                        "metadata": child.metadata
+                        "metadata": child.metadata,
+                        "timestamp": chrono::Utc::now()
                     })
                 }).collect();
                 Ok(success_response(id.clone(), json!(CallToolResult {
@@ -805,7 +816,8 @@ pub async fn handle_graph_tool_call(
                     "description": node.description,
                     "content": node.content,
                     "tags": node.tags,
-                    "metadata": node.metadata
+                    "metadata": node.metadata,
+                    "timestamp": chrono::Utc::now()
                 })
             }).collect();
             Ok(success_response(id.clone(), json!(CallToolResult {
@@ -855,7 +867,8 @@ pub async fn handle_graph_tool_call(
                     "content": node.content,
                     "tags": node.tags,
                     "metadata": node.metadata,
-                    "connection_count": edge_count
+                    "connection_count": edge_count,
+                    "timestamp": chrono::Utc::now()
                 })
             }).collect();
             Ok(success_response(id.clone(), json!(CallToolResult {
@@ -877,7 +890,8 @@ pub async fn handle_graph_tool_call(
             let tags_info: Vec<_> = tags.into_iter().map(|(tag, count)| {
                 json!({
                     "tag": tag,
-                    "count": count
+                    "count": count,
+                    "timestamp": chrono::Utc::now()
                 })
             }).collect();
             Ok(success_response(id.clone(), json!(CallToolResult {
