@@ -4,8 +4,6 @@ use serde::{Serialize, Deserialize};
 use petgraph::Graph;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
-use serde::ser::{Serializer, SerializeStruct};
-use serde::de::Deserializer;
 use serde_json::{json, Value};
 use anyhow::{Result, anyhow};
 use shared_protocol_objects::{
@@ -470,7 +468,7 @@ pub async fn handle_graph_tool_call(
         (Some("create_root"), Some(params)) => {
             let create_params: CreateNodeParams = serde_json::from_value(params.clone())?;
             let node = DataNode::new(create_params.name, create_params.description, create_params.content);
-            match graph_manager.create_root(node) {
+            match graph_manager.create_root(node).await {
                 Ok(idx) => {
                     let result = json!({
                         "message": "Root node created successfully",
@@ -508,7 +506,7 @@ pub async fn handle_graph_tool_call(
                     }
 
                     let relation = create_params.relation.ok_or_else(|| anyhow!("Missing relation for creating connected node"))?;
-                    match graph_manager.create_connected_node(node, parent_idx, relation) {
+                    match graph_manager.create_connected_node(node, parent_idx, relation).await {
                         Ok(idx) => {
                             let result = json!({
                                 "message": "Node created successfully",
@@ -554,7 +552,7 @@ pub async fn handle_graph_tool_call(
                     updated_node.metadata = metadata;
                 }
 
-                match graph_manager.update_node(idx, updated_node) {
+                match graph_manager.update_node(idx, updated_node).await {
                     Ok(_) => {
                         let result = json!({"message": "Node updated successfully"});
                         Ok(success_response(None, json!(CallToolResult {
@@ -580,7 +578,7 @@ pub async fn handle_graph_tool_call(
         (Some("delete_node"), Some(params)) => {
             let delete_params: DeleteNodeParams = serde_json::from_value(params.clone())?;
             if let Some((idx, _)) = graph_manager.get_node_by_name(&delete_params.node_name) {
-                match graph_manager.delete_node(idx) {
+                match graph_manager.delete_node(idx).await {
                     Ok(_) => {
                         let result = json!({"message": "Node deleted successfully"});
                         Ok(success_response(None, json!(CallToolResult {
@@ -606,7 +604,7 @@ pub async fn handle_graph_tool_call(
         (Some("connect_nodes"), Some(params)) => {
             let connect_params: ConnectNodesParams = serde_json::from_value(params.clone())?;
             if let (Some((from_idx, _)), Some((to_idx, _))) = (graph_manager.get_node_by_name(&connect_params.from_node_name), graph_manager.get_node_by_name(&connect_params.to_node_name)) {
-                match graph_manager.connect(from_idx, to_idx, connect_params.relation) {
+                match graph_manager.connect(from_idx, to_idx, connect_params.relation).await {
                     
                     Ok(_) => {
                         let result = json!({"message": "Nodes connected successfully"});
