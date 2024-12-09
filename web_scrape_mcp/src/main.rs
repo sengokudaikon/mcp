@@ -293,7 +293,7 @@ async fn main() {
                                             "type": "integer",
                                             "description": "Maximum number of tags to return (default: 10)",
                                             "minimum": 1,
-                                            "maximum": 100
+                                            "maximum": 200
                                         }
                                     }
                                 }
