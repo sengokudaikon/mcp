@@ -779,7 +779,10 @@ async fn handle_request(
                         }
                     } else if t.name == "graph_tool" {
                         let mut graph_manager = GraphManager::new("knowledge_graph.json".to_string());
-                        handle_graph_tool_call(params, &mut graph_manager).await
+                        match handle_graph_tool_call(params, &mut graph_manager).await {
+                            Ok(resp) => Some(resp),
+                            Err(e) => Some(error_response(id, INTERNAL_ERROR, &e.to_string()))
+                        }
                     } else {
                         Some(error_response(id, -32601, "Tool not implemented"))
                     }

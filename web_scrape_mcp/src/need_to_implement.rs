@@ -36,7 +36,7 @@ impl DataNode {
 }
 
 #[derive(Serialize, Deserialize)]
-struct GraphManager {
+pub struct GraphManager {
     graph: Graph<DataNode, String>,
     root: Option<NodeIndex>,
     path: String,
@@ -65,7 +65,7 @@ impl GraphManager {
     }
     
 
-    fn save(&self) -> std::io::Result<()> {
+    fn save(&self) -> Result<()> {
         let json = serde_json::to_string(&self.graph)?;
         fs::write(&self.path, json)
     }
@@ -134,7 +134,7 @@ impl GraphManager {
 
     fn connect(&mut self, from: NodeIndex, to: NodeIndex, rel: String) -> Result<()> {
         self.graph.add_edge(from, to, rel);
-        self.save()
+        Ok(self.save()?)
     }
 
     // Method to get a node by its name
