@@ -102,7 +102,7 @@ impl GraphManager {
     }
     
 
-    fn save(&self) -> Result<()> {
+    async fn save(&self) -> Result<()> {
         // Convert to serializable format
         let serializable = SerializableGraph {
             nodes: self.graph.node_indices()
@@ -116,11 +116,12 @@ impl GraphManager {
                 .collect()
         };
         let json = serde_json::to_string(&serializable)?;
-        fs::write(&self.path, json).map_err(|e| anyhow!("Failed to write graph file: {}", e))?;
+        tokio::fs::write(&self.path, json).await
+            .map_err(|e| anyhow!("Failed to write graph file: {}", e))?;
         Ok(())
     }
 
-    fn create_root(&mut self, node: DataNode) -> Result<NodeIndex> {
+    async fn create_root(&mut self, node: DataNode) -> Result<NodeIndex> {
         if self.root.is_some() {
             return Err(anyhow!("Root already exists"));
         }
@@ -129,11 +130,11 @@ impl GraphManager {
         }
         let idx = self.graph.add_node(node);
         self.root = Some(idx);
-        self.save()?;
+        self.save().await?;
         Ok(idx)
     }
 
-    fn create_connected_node(&mut self, node: DataNode, parent: NodeIndex, rel: String) -> Result<NodeIndex> {
+    async fn create_connected_node(&mut self, node: DataNode, parent: NodeIndex, rel: String) -> Result<NodeIndex> {
         if !self.graph.node_weight(parent).is_some() {
             return Err(anyhow!("Parent node not found"));
         }
@@ -146,7 +147,7 @@ impl GraphManager {
         Ok(idx)
     }
 
-    fn update_node(&mut self, idx: NodeIndex, node: DataNode) -> Result<()> {
+    async fn update_node(&mut self, idx: NodeIndex, node: DataNode) -> Result<()> {
         // Only check for name uniqueness if the name is actually changing
         if let Some(current) = self.graph.node_weight(idx) {
             if current.name != node.name && self.node_name_exists(&node.name) {
@@ -160,7 +161,7 @@ impl GraphManager {
         Ok(())
     }
 
-    fn delete_node(&mut self, idx: NodeIndex) -> Result<()> {
+    async fn delete_node(&mut self, idx: NodeIndex) -> Result<()> {
         if Some(idx) == self.root {
             return Err(anyhow!("Cannot delete root"));
         }
@@ -182,9 +183,9 @@ impl GraphManager {
         self.graph.node_weight(idx)
     }
 
-    fn connect(&mut self, from: NodeIndex, to: NodeIndex, rel: String) -> Result<()> {
+    async fn connect(&mut self, from: NodeIndex, to: NodeIndex, rel: String) -> Result<()> {
         self.graph.add_edge(from, to, rel);
-        Ok(self.save()?)
+        Ok(self.save().await?)
     }
 
     // Method to get a node by its name
