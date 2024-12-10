@@ -395,7 +395,7 @@ impl MCPHost {
                         println!("\nTool result:\n{}", result);
                         
                         // Get next action from assistant
-                        let mut builder = client.raw_builder().model("gpt-4");
+                        let mut builder = client.raw_builder().model("gpt-4o");
                         for msg in &state.messages {
                             match msg.role {
                                 Role::System => builder = builder.system(&msg.content),
@@ -477,7 +477,7 @@ impl MCPHost {
 
                                 // Use OpenAI client if available
                                 if let Some(client) = &self.openai_client {
-                                    let mut builder = client.raw_builder().model("gpt-4");
+                                    let mut builder = client.raw_builder().model("gpt-4o");
                                 
                                     // Add all messages from conversation state
                                     for msg in &state.messages {
