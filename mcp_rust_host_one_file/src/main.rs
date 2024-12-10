@@ -37,6 +37,29 @@ use uuid::Uuid;
 use regex::Regex;
 use lazy_static::lazy_static;
 
+async fn with_progress<F, T>(msg: &str, future: F) -> T 
+where
+    F: std::future::Future<Output = T>,
+{
+    let term = Term::stderr();
+    let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let mut i = 0;
+    
+    let handle = tokio::spawn(async move {
+        loop {
+            term.write_line(&format!("\r{} {}", spinner[i], msg))
+                .unwrap_or_default();
+            i = (i + 1) % spinner.len();
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+    });
+
+    let result = future.await;
+    handle.abort();
+    term.clear_line().unwrap_or_default();
+    result
+}
+
 // Helper functions for parsing tool calls
 fn extract_json_after_position(text: &str, pos: usize) -> Option<Value> {
     if let Some(json_start) = text[pos..].find('{') {
@@ -643,12 +666,8 @@ impl MCPHost {
         state: &mut ConversationState,
         client: &OpenAIClient,
     ) -> Result<()> {
-        info!("Starting handle_assistant_response");
-        info!("Server: {}", server_name);
-        info!("Response length: {} chars", response.len());
-        info!("Adding initial assistant response to conversation state");
+        println!("{}", conversation_state::format_chat_message(&Role::Assistant, response));
         state.add_assistant_message(response);
-        info!("Added response to conversation state");
         
         // Initialize a loop for multiple tool calls
         let mut current_response = response.to_string();
@@ -672,16 +691,19 @@ impl MCPHost {
                         info!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
                         
                         // Execute the tool call
+                        println!("{}", style("\nTool Call:").green().bold());
+                        println!("└─ {}: {}\n", 
+                            style(&tool_name).yellow(),
+                            conversation_state::format_json_output(&serde_json::to_string_pretty(&args)?));
+
                         match self.call_tool(server_name, &tool_name, args).await {
                             Ok(result) => {
-                                let tool_result = format!("Tool {} returned: {}", tool_name, result);
-                                state.add_system_message(&tool_result);
-                                info!("\nTool result:\n{}", result);
+                                println!("{}", conversation_state::format_tool_response(&tool_name, &result));
+                                state.add_system_message(&result);
                             }
                             Err(e) => {
-                                let error_msg = format!("Error calling tool {}: {}", tool_name, e);
-                                state.add_system_message(&error_msg);
-                                info!("{}", error_msg);
+                                println!("{}: {}\n", style("Error").red().bold(), e);
+                                state.add_system_message(&format!("Error: {}", e));
                             }
                         }
                     }
@@ -703,10 +725,11 @@ impl MCPHost {
             }
             
             info!("Sending request to OpenAI with timeout");
-            match tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute()).await {
+            match with_progress("Waiting for AI response...", 
+                tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute())
+            ).await {
                 Ok(Ok(response)) => {
-                    info!("Received successful response from OpenAI");
-                    info!("\nAssistant: {}", response);
+                    println!("\n{}", conversation_state::format_chat_message(&Role::Assistant, &response));
                     state.add_assistant_message(&response);
                     current_response = response;
                 }
