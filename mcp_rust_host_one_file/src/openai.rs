@@ -461,8 +461,17 @@ impl<'a> TranscriptionBuilder<'a> {
         debug!("TranscriptionBuilder.execute called");
         let file_path = Path::new(&self.file_path);
         
+        let file_bytes = tokio::fs::read(&file_path).await?;
+        let file_name = Path::new(&file_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("file");
+            
+        let file_part = reqwest::multipart::Part::bytes(file_bytes)
+            .file_name(file_name.to_string());
+            
         let mut form = reqwest::multipart::Form::new()
-            .file("file", file_path).await?
+            .part("file", file_part)
             .text("model", self.model);
 
         if let Some(lang) = self.language {

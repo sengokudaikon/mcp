@@ -1,5 +1,4 @@
 use shared_protocol_objects::{Role, ToolInfo};
-use serde_json::Value;
 
 #[derive(Debug, Clone)]
 pub struct Message {
