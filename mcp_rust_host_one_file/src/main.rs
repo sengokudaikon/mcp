@@ -34,6 +34,7 @@ pub struct MCPHost {
     servers: Arc<Mutex<HashMap<String, ManagedServer>>>,
     client_info: Implementation,
     request_timeout: std::time::Duration,
+    openai_client: Option<OpenAIClient>,
 }
 
 impl MCPHost {
@@ -115,6 +116,11 @@ impl MCPHost {
     }
 
     pub async fn new() -> Result<Self> {
+        let openai_client = match std::env::var("OPENAI_API_KEY") {
+            Ok(api_key) => Some(OpenAIClient::new(api_key)),
+            Err(_) => None,
+        };
+
         Ok(Self {
             servers: Arc::new(Mutex::new(HashMap::new())),
             client_info: Implementation {
@@ -122,6 +128,7 @@ impl MCPHost {
                 version: env!("CARGO_PKG_VERSION").to_string(),
             },
             request_timeout: std::time::Duration::from_secs(120), // Increased timeout for long-running operations
+            openai_client,
         })
     }
 
@@ -357,11 +364,30 @@ impl MCPHost {
 
                                 state.add_user_message(user_input);
 
-                                // Here you would call your LLM client with state.messages to get an assistant response
-                                // For now, we just simulate:
-                                let assistant_reply = "Simulated assistant response";
-                                state.add_assistant_message(assistant_reply);
-                                println!("Assistant: {}", assistant_reply);
+                                // Use OpenAI client if available
+                                if let Some(client) = &self.openai_client {
+                                    let mut builder = client.raw_builder().model("gpt-4");
+                                
+                                    // Add all messages from conversation state
+                                    for msg in &state.messages {
+                                        match msg.role {
+                                            Role::System => builder = builder.system(&msg.content),
+                                            Role::User => builder = builder.user(&msg.content),
+                                            Role::Assistant => builder = builder.assistant(&msg.content),
+                                        }
+                                    }
+
+                                    match builder.execute().await {
+                                        Ok(response) => {
+                                            state.add_assistant_message(&response);
+                                            println!("Assistant: {}", response);
+                                        }
+                                        Err(e) => println!("Error getting response: {}", e),
+                                    }
+                                } else {
+                                    println!("Error: OpenAI client not initialized. Set OPENAI_API_KEY environment variable.");
+                                    break;
+                                }
                             }
                         }
                         Err(e) => println!("Error entering chat mode: {}", e),
