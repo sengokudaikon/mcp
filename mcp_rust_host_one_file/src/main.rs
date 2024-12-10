@@ -1,4 +1,5 @@
 use anyhow::Result;
+use console::{style, Term};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs;
@@ -745,7 +746,7 @@ impl MCPHost {
             match command {
                 "load_config" => {
                     if server_args.len() != 1 {
-                        info!("Usage: load_config <config_file>");
+                        println!("{}: load_config <config_file>", style("Usage").cyan().bold());
                         continue;
                     }
 
@@ -764,7 +765,7 @@ impl MCPHost {
                     let server_name = server_args[0];
                     match self.enter_chat_mode(server_name).await {
                         Ok(mut state) => {
-                            info!("Entering chat mode. Type 'exit' or 'quit' to leave.");
+                            println!("\n{}", style("Entering chat mode. Type 'exit' or 'quit' to leave.").cyan().bold());
 
                             loop {
                                 let mut input = String::new();
@@ -792,7 +793,7 @@ impl MCPHost {
 
                                     match builder.execute().await {
                                         Ok(response) => {
-                                            info!("\nAssistant: {}", response);
+                                            println!("\n{}: {}", style("Assistant").cyan().bold(), response);
                                             // Handle the multi-step response
                                             if let Err(e) = self.handle_assistant_response(&response, server_name, &mut state, client).await {
                                                 info!("Error handling assistant response: {}", e);
@@ -810,21 +811,24 @@ impl MCPHost {
                     }
                 }
                 "help" => {
-                    info!("Available commands:");
-                    info!("  load_config <file>              - Load servers from config file");
-                    info!("  servers                         - List running servers");
-                    info!("  start <name> <command> [args]   - Start a server");
-                    info!("  stop <server>                   - Stop a server");
-                    info!("  tools <server>                  - List tools for a server");
-                    info!("  call <server> <tool>            - Call a tool with JSON arguments");
-                    info!("  chat <server>                   - Enter interactive chat mode with a server");
-                    info!("  quit                            - Exit the program");
+                    println!("\n{}", style("Available commands:").cyan().bold());
+                    println!("  {}  - Load servers from config file", style("load_config <file>").yellow());
+                    println!("  {}              - List running servers", style("servers").yellow());
+                    println!("  {}    - Start a server", style("start <name> <command> [args]").yellow());
+                    println!("  {}                  - Stop a server", style("stop <server>").yellow());
+                    println!("  {}               - List tools for a server", style("tools <server>").yellow());
+                    println!("  {}             - Call a tool with JSON arguments", style("call <server> <tool>").yellow());
+                    println!("  {}               - Enter interactive chat mode with a server", style("chat <server>").yellow());
+                    println!("  {}                         - Exit the program", style("quit").yellow());
                 }
                 "servers" => {
                     let servers = self.servers.lock().await;
-                    info!("\nRunning servers:");
+                    println!("\n{}", style("Running servers:").cyan().bold());
                     for (name, server) in servers.iter() {
-                        info!("  {} - initialized: {}", name, server.initialized);
+                        println!("  {} - initialized: {}", 
+                            style(name).yellow(),
+                            if server.initialized { style("yes").green() } else { style("no").red() }
+                        );
                     }
                     // info!();
                 }
@@ -905,12 +909,22 @@ impl MCPHost {
                     match self.call_tool(server_name, tool_name, args_value).await {
                         Ok(result) => {
                             if result.trim().is_empty() {
-                                info!("\nNo results returned");
+                                println!("\n{}", style("No results returned").yellow());
                             } else {
-                                info!("\nResult:\n{}\n", result);
+                                println!("\n{}", style("Result:").cyan().bold());
+                                if result.trim().starts_with('{') || result.trim().starts_with('[') {
+                                    // Pretty print JSON
+                                    if let Ok(json) = serde_json::from_str::<Value>(&result) {
+                                        println!("```json\n{}\n```", serde_json::to_string_pretty(&json)?);
+                                    } else {
+                                        println!("{}", result);
+                                    }
+                                } else {
+                                    println!("{}", result);
+                                }
                             }
                         }
-                        Err(e) => info!("Error calling tool: {}", e),
+                        Err(e) => println!("{}: {}", style("Error calling tool").red().bold(), e),
                     }
                 }
                 "quit" => break,
