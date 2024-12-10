@@ -1,6 +1,9 @@
-use anyhow::{Result};
+use anyhow::Result;
 use serde_json::{Value, json};
 use std::collections::HashMap;
+mod openai;
+use openai::OpenAIClient;
+use shared_protocol_objects::Role;
 mod conversation_state;
 use conversation_state::ConversationState;
 use std::io;
@@ -349,7 +352,7 @@ impl MCPHost {
                     }
 
                     let server_name = server_args[0];
-                    match host.enter_chat_mode(server_name).await {
+                    match self.enter_chat_mode(server_name).await {
                         Ok(mut state) => {
                             println!("Entering chat mode. Type 'exit' or 'quit' to leave.");
 

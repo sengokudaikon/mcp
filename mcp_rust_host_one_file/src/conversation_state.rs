@@ -18,12 +18,12 @@ impl ConversationState {
     pub fn new(system_prompt: String, tools: Vec<ToolInfo>) -> Self {
         let mut state = Self {
             messages: Vec::new(),
-            system_prompt,
+            system_prompt: system_prompt.clone(),
             tools,
         };
 
         // Add the system prompt as the first system message
-        state.add_system_message(&state.system_prompt);
+        state.add_system_message(&system_prompt);
         state
     }
 
