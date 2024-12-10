@@ -156,8 +156,39 @@ impl MCPHost {
 
     pub async fn new() -> Result<Self> {
         let openai_client = match std::env::var("OPENAI_API_KEY") {
-            Ok(api_key) => Some(OpenAIClient::new(api_key)),
-            Err(_) => None,
+            Ok(api_key) => {
+                println!("Found OpenAI API key in environment");
+                // Test the API key with a simple request
+                let client = OpenAIClient::new(api_key.clone());
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(10),
+                    client.raw_builder()
+                        .model("gpt-4o")
+                        .system("Test message")
+                        .user("Echo test")
+                        .execute()
+                ).await {
+                    Ok(Ok(_)) => {
+                        println!("Successfully validated OpenAI API key");
+                        Some(client)
+                    }
+                    Ok(Err(e)) => {
+                        println!("Warning: OpenAI API key validation failed: {}", e);
+                        println!("Chat functionality may not work correctly");
+                        Some(client)
+                    }
+                    Err(_) => {
+                        println!("Warning: OpenAI API key validation timed out");
+                        println!("Chat functionality may not work correctly");
+                        Some(client)
+                    }
+                }
+            }
+            Err(_) => {
+                println!("Warning: OPENAI_API_KEY environment variable not set");
+                println!("Chat functionality will not be available");
+                None
+            }
         };
 
         Ok(Self {
