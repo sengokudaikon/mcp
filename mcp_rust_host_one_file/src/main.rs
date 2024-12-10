@@ -1,6 +1,8 @@
 use anyhow::{Result};
 use serde_json::{Value, json};
 use std::collections::HashMap;
+mod conversation_state;
+use conversation_state::ConversationState;
 use std::io;
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
@@ -35,6 +37,83 @@ pub struct MCPHost {
 }
 
 impl MCPHost {
+    pub async fn enter_chat_mode(&self, server_name: &str) -> Result<ConversationState> {
+        // Fetch tools from the server
+        let tool_info_list = self.list_server_tools(server_name).await?;
+
+        // Convert our tool list to a JSON structure similar to the Python code
+        let tools_json: Vec<serde_json::Value> = tool_info_list.iter().map(|t| {
+            json!({
+                "name": t.name,
+                "description": t.description.as_ref().unwrap_or(&"".to_string()),
+                "inputSchema": t.input_schema
+            })
+        }).collect();
+
+        let system_prompt = self.generate_system_prompt(&tools_json);
+
+        // Create the conversation state
+        let state = ConversationState::new(system_prompt, tool_info_list);
+
+        Ok(state)
+    }
+
+    fn generate_system_prompt(&self, tools: &[serde_json::Value]) -> String {
+        // Emulating the Python script's system prompt logic
+        let tools_section = serde_json::to_string_pretty(&json!({ "tools": tools })).unwrap_or("".to_string());
+
+        let mut prompt = String::new();
+        prompt.push_str("You are an assistant with access to a set of tools you can use to answer the user's question.\n");
+        prompt.push_str("String and scalar parameters should be specified as is, while lists and objects should use JSON format.\n");
+        prompt.push_str("Here are the functions available in JSONSchema format:\n");
+        prompt.push_str(&tools_section);
+        prompt.push_str("\n\n**GENERAL GUIDELINES:**\n\n");
+        prompt.push_str("1. Step-by-step reasoning:\n");
+        prompt.push_str("   - Analyze tasks systematically.\n");
+        prompt.push_str("   - Break down complex problems into smaller, manageable parts.\n");
+        prompt.push_str("   - Verify assumptions at each step to avoid errors.\n");
+        prompt.push_str("   - Reflect on results to improve subsequent actions.\n\n");
+        prompt.push_str("2. Effective tool usage:\n");
+        prompt.push_str("   - Explore:\n");
+        prompt.push_str("     - Identify available information and verify its structure.\n");
+        prompt.push_str("     - Check assumptions and understand data relationships.\n");
+        prompt.push_str("   - Iterate:\n");
+        prompt.push_str("     - Start with simple queries or actions.\n");
+        prompt.push_str("     - Build upon successes, adjusting based on observations.\n");
+        prompt.push_str("   - Handle errors:\n");
+        prompt.push_str("     - Carefully analyze error messages.\n");
+        prompt.push_str("     - Use errors as a guide to refine your approach.\n");
+        prompt.push_str("     - Document what went wrong and suggest fixes.\n\n");
+        prompt.push_str("3. Clear communication:\n");
+        prompt.push_str("   - Explain your reasoning and decisions at each step.\n");
+        prompt.push_str("   - Share discoveries transparently with the user.\n");
+        prompt.push_str("   - Outline next steps or ask clarifying questions as needed.\n\n");
+
+        prompt.push_str("EXAMPLES OF BEST PRACTICES:\n\n");
+        prompt.push_str("- Working with databases:\n");
+        prompt.push_str("  - Check schema before writing queries.\n");
+        prompt.push_str("  - Verify the existence of columns or tables.\n");
+        prompt.push_str("  - Start with basic queries and refine based on results.\n\n");
+        prompt.push_str("- Processing data:\n");
+        prompt.push_str("  - Validate data formats and handle edge cases.\n");
+        prompt.push_str("  - Ensure integrity and correctness of results.\n\n");
+        prompt.push_str("- Accessing resources:\n");
+        prompt.push_str("  - Confirm resource availability and permissions.\n");
+        prompt.push_str("  - Handle missing or incomplete data gracefully.\n\n");
+
+        prompt.push_str("REMEMBER:\n");
+        prompt.push_str("- Be thorough and systematic.\n");
+        prompt.push_str("- Each tool call should have a clear and well-explained purpose.\n");
+        prompt.push_str("- Make reasonable assumptions if ambiguous.\n");
+        prompt.push_str("- Minimize unnecessary user interactions by providing actionable insights.\n\n");
+
+        prompt.push_str("EXAMPLES OF ASSUMPTIONS:\n");
+        prompt.push_str("- Default sorting (e.g., descending order) if not specified.\n");
+        prompt.push_str("- Assume basic user intentions, such as fetching top results by a common metric.\n");
+
+        prompt
+    }
+
     pub async fn new() -> Result<Self> {
         Ok(Self {
             servers: Arc::new(Mutex::new(HashMap::new())),
@@ -256,6 +335,38 @@ impl MCPHost {
             let server_args = &args[1..];
 
             match command {
+                "chat" => {
+                    if server_args.len() != 1 {
+                        println!("Usage: chat <server>");
+                        continue;
+                    }
+
+                    let server_name = server_args[0];
+                    match host.enter_chat_mode(server_name).await {
+                        Ok(mut state) => {
+                            println!("Entering chat mode. Type 'exit' or 'quit' to leave.");
+
+                            loop {
+                                let mut input = String::new();
+                                std::io::stdin().read_line(&mut input)?;
+                                let user_input = input.trim();
+                                if user_input.eq_ignore_ascii_case("exit") || user_input.eq_ignore_ascii_case("quit") {
+                                    println!("Exiting chat mode.");
+                                    break;
+                                }
+
+                                state.add_user_message(user_input);
+
+                                // Here you would call your LLM client with state.messages to get an assistant response
+                                // For now, we just simulate:
+                                let assistant_reply = "Simulated assistant response";
+                                state.add_assistant_message(assistant_reply);
+                                println!("Assistant: {}", assistant_reply);
+                            }
+                        }
+                        Err(e) => println!("Error entering chat mode: {}", e),
+                    }
+                }
                 "help" => {
                     println!("Available commands:");
                     println!("  servers                         - List running servers");
@@ -263,6 +374,7 @@ impl MCPHost {
                     println!("  stop <server>                   - Stop a server");
                     println!("  tools <server>                  - List tools for a server");
                     println!("  call <server> <tool>            - Call a tool with JSON arguments");
+                    println!("  chat <server>                   - Enter interactive chat mode with a server");
                     println!("  quit                            - Exit the program");
                 }
                 "servers" => {

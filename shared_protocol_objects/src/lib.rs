@@ -38,6 +38,7 @@ impl From<RequestId> for Value {
 pub enum Role {
     Assistant,
     User,
+    System,
 }
 
 /// Base JSON-RPC message types
