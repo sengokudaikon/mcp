@@ -351,7 +351,7 @@ impl MCPHost {
     pub async fn new() -> Result<Self> {
         let openai_client = match std::env::var("OPENAI_API_KEY") {
             Ok(api_key) => {
-                debug!("Found OpenAI API key in environment");
+                info!("Found OpenAI API key in environment");
                 // Test the API key with a simple request
                 let client = OpenAIClient::new(api_key.clone());
                 match tokio::time::timeout(
@@ -363,24 +363,24 @@ impl MCPHost {
                         .execute()
                 ).await {
                     Ok(Ok(_)) => {
-                        debug!("Successfully validated OpenAI API key");
+                        info!("Successfully validated OpenAI API key");
                         Some(client)
                     }
                     Ok(Err(e)) => {
-                        debug!("Warning: OpenAI API key validation failed: {}", e);
-                        debug!("Chat functionality may not work correctly");
+                        info!("Warning: OpenAI API key validation failed: {}", e);
+                        info!("Chat functionality may not work correctly");
                         Some(client)
                     }
                     Err(_) => {
-                        debug!("Warning: OpenAI API key validation timed out");
-                        debug!("Chat functionality may not work correctly");
+                        info!("Warning: OpenAI API key validation timed out");
+                        info!("Chat functionality may not work correctly");
                         Some(client)
                     }
                 }
             }
             Err(_) => {
-                debug!("Warning: OPENAI_API_KEY environment variable not set");
-                debug!("Chat functionality will not be available");
+                info!("Warning: OPENAI_API_KEY environment variable not set");
+                info!("Chat functionality will not be available");
                 None
             }
         };
@@ -498,11 +498,11 @@ impl MCPHost {
     }
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
-        debug!("\n=== Starting send_request ===");
-        debug!("Server: {}", server_name);
-        debug!("Request method: {}", request.method);
+        info!("\n=== Starting send_request ===");
+        info!("Server: {}", server_name);
+        info!("Request method: {}", request.method);
         let request_str = serde_json::to_string(&request)? + "\n";
-        debug!("DEBUG: Sending request: {}", request_str.trim());
+        info!("DEBUG: Sending request: {}", request_str.trim());
         
         // Create channels for stdin/stdout communication
         let (tx, mut rx) = mpsc::channel(1);
@@ -516,16 +516,16 @@ impl MCPHost {
             (Arc::clone(&server.stdin), Arc::clone(&server.stdout))
         };
 
-        debug!("Spawning async task for request/response handling");
+        info!("Spawning async task for request/response handling");
         // Write request and read response in a separate task
         tokio::spawn(async move {
-            debug!("Async task started");
+            info!("Async task started");
             // Write request
             {
                 let request_bytes = request_str.as_bytes().to_vec(); // Clone the data
-                debug!("Acquiring stdin lock");
+                info!("Acquiring stdin lock");
                 let mut stdin_guard = stdin.lock().await;
-                debug!("Acquired stdin lock");
+                info!("Acquired stdin lock");
                 if let Err(e) = stdin_guard.write_all(&request_bytes).await {
                     let _ = tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await;
                     return;
@@ -538,7 +538,7 @@ impl MCPHost {
             }
 
             // Read response
-            debug!("Starting response read");
+            info!("Starting response read");
             let mut response_line = String::new();
             {
                 let mut stdout_guard = stdout.lock().await;
@@ -549,7 +549,7 @@ impl MCPHost {
                         let _ = tx.send(Err(anyhow::anyhow!("Server closed connection"))).await;
                     }
                     Ok(_) => {
-                        debug!("DEBUG: Received response: {}", response_line.trim());
+                        info!("DEBUG: Received response: {}", response_line.trim());
                         match serde_json::from_str(&response_line) {
                             Ok(response) => { let _ = tx.send(Ok(response)).await; }
                             Err(e) => { 
@@ -581,18 +581,18 @@ impl MCPHost {
             params: None,
         };
 
-        debug!("Sending tool call request to server");
+        info!("Sending tool call request to server");
         let response = self.send_request(server_name, request).await?;
-        debug!("Received response from server");
+        info!("Received response from server");
         let tools: ListToolsResult = serde_json::from_value(response.result.unwrap_or_default())?;
         Ok(tools.tools)
     }
 
     pub async fn call_tool(&self, server_name: &str, tool_name: &str, args: Value) -> Result<String> {
-        debug!("call_tool started");
-        debug!("Server: {}", server_name);
-        debug!("Tool: {}", tool_name);
-        debug!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
+        info!("call_tool started");
+        info!("Server: {}", server_name);
+        info!("Tool: {}", tool_name);
+        info!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: RequestId::String(Uuid::new_v4().to_string()).into(),
@@ -641,12 +641,12 @@ impl MCPHost {
         state: &mut ConversationState,
         client: &OpenAIClient,
     ) -> Result<()> {
-        debug!("Starting handle_assistant_response");
-        debug!("Server: {}", server_name);
-        debug!("Response length: {} chars", response.len());
-        debug!("Adding initial assistant response to conversation state");
+        info!("Starting handle_assistant_response");
+        info!("Server: {}", server_name);
+        info!("Response length: {} chars", response.len());
+        info!("Adding initial assistant response to conversation state");
         state.add_assistant_message(response);
-        debug!("Added response to conversation state");
+        info!("Added response to conversation state");
         
         // Initialize a loop for multiple tool calls
         let mut current_response = response.to_string();
@@ -654,7 +654,7 @@ impl MCPHost {
         const MAX_ITERATIONS: i32 = 10; // Increased from 5 to allow more tool calls
         
         while iteration < MAX_ITERATIONS {
-            debug!("\nStarting iteration {} of response handling", iteration + 1);
+            info!("\nStarting iteration {} of response handling", iteration + 1);
             
             // Try to find all tool calls in the current response
             let mut found_tool_call = false;
@@ -665,21 +665,21 @@ impl MCPHost {
                 if i % 2 == 1 { // Only look at content between ``` marks
                     if let Some((tool_name, args)) = parse_tool_call(chunk) {
                         found_tool_call = true;
-                        debug!("Found tool call in chunk {}:", i);
-                        debug!("Tool: {}", tool_name);
-                        debug!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
+                        info!("Found tool call in chunk {}:", i);
+                        info!("Tool: {}", tool_name);
+                        info!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
                         
                         // Execute the tool call
                         match self.call_tool(server_name, &tool_name, args).await {
                             Ok(result) => {
                                 let tool_result = format!("Tool {} returned: {}", tool_name, result);
                                 state.add_system_message(&tool_result);
-                                debug!("\nTool result:\n{}", result);
+                                info!("\nTool result:\n{}", result);
                             }
                             Err(e) => {
                                 let error_msg = format!("Error calling tool {}: {}", tool_name, e);
                                 state.add_system_message(&error_msg);
-                                debug!("{}", error_msg);
+                                info!("{}", error_msg);
                             }
                         }
                     }
@@ -700,20 +700,20 @@ impl MCPHost {
                 }
             }
             
-            debug!("Sending request to OpenAI with timeout");
+            info!("Sending request to OpenAI with timeout");
             match tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute()).await {
                 Ok(Ok(response)) => {
-                    debug!("Received successful response from OpenAI");
-                    debug!("\nAssistant: {}", response);
+                    info!("Received successful response from OpenAI");
+                    info!("\nAssistant: {}", response);
                     state.add_assistant_message(&response);
                     current_response = response;
                 }
                 Ok(Err(e)) => {
-                    debug!("Error getting response from OpenAI API: {}", e);
+                    info!("Error getting response from OpenAI API: {}", e);
                     break;
                 }
                 Err(_) => {
-                    debug!("OpenAI API request timed out after 30 seconds");
+                    info!("OpenAI API request timed out after 30 seconds");
                     break;
                 }
             }
@@ -722,14 +722,14 @@ impl MCPHost {
         }
         
         if iteration >= MAX_ITERATIONS {
-            debug!("Warning: Reached maximum number of tool call iterations");
+            info!("Warning: Reached maximum number of tool call iterations");
         }
         
         Ok(())
     }
 
     pub async fn run_cli(&self) -> Result<()> {
-        debug!("MCP Host CLI - Enter 'help' for commands");
+        info!("MCP Host CLI - Enter 'help' for commands");
 
         let mut lines = tokio::io::BufReader::new(tokio::io::stdin()).lines();
 
@@ -745,33 +745,33 @@ impl MCPHost {
             match command {
                 "load_config" => {
                     if server_args.len() != 1 {
-                        debug!("Usage: load_config <config_file>");
+                        info!("Usage: load_config <config_file>");
                         continue;
                     }
 
                     let config_path = server_args[0];
                     match self.load_config(config_path).await {
-                        Ok(()) => debug!("Successfully loaded configuration from {}", config_path),
-                        Err(e) => debug!("Error loading configuration: {}", e),
+                        Ok(()) => info!("Successfully loaded configuration from {}", config_path),
+                        Err(e) => info!("Error loading configuration: {}", e),
                     }
                 },
                 "chat" => {
                     if server_args.len() != 1 {
-                        debug!("Usage: chat <server>");
+                        info!("Usage: chat <server>");
                         continue;
                     }
 
                     let server_name = server_args[0];
                     match self.enter_chat_mode(server_name).await {
                         Ok(mut state) => {
-                            debug!("Entering chat mode. Type 'exit' or 'quit' to leave.");
+                            info!("Entering chat mode. Type 'exit' or 'quit' to leave.");
 
                             loop {
                                 let mut input = String::new();
                                 std::io::stdin().read_line(&mut input)?;
                                 let user_input = input.trim();
                                 if user_input.eq_ignore_ascii_case("exit") || user_input.eq_ignore_ascii_case("quit") {
-                                    debug!("Exiting chat mode.");
+                                    info!("Exiting chat mode.");
                                     break;
                                 }
 
@@ -792,45 +792,45 @@ impl MCPHost {
 
                                     match builder.execute().await {
                                         Ok(response) => {
-                                            debug!("\nAssistant: {}", response);
+                                            info!("\nAssistant: {}", response);
                                             // Handle the multi-step response
                                             if let Err(e) = self.handle_assistant_response(&response, server_name, &mut state, client).await {
-                                                debug!("Error handling assistant response: {}", e);
+                                                info!("Error handling assistant response: {}", e);
                                             }
                                         }
-                                        Err(e) => debug!("Error getting response: {}", e),
+                                        Err(e) => info!("Error getting response: {}", e),
                                     }
                                 } else {
-                                    debug!("Error: OpenAI client not initialized. Set OPENAI_API_KEY environment variable.");
+                                    info!("Error: OpenAI client not initialized. Set OPENAI_API_KEY environment variable.");
                                     break;
                                 }
                             }
                         }
-                        Err(e) => debug!("Error entering chat mode: {}", e),
+                        Err(e) => info!("Error entering chat mode: {}", e),
                     }
                 }
                 "help" => {
-                    debug!("Available commands:");
-                    debug!("  load_config <file>              - Load servers from config file");
-                    debug!("  servers                         - List running servers");
-                    debug!("  start <name> <command> [args]   - Start a server");
-                    debug!("  stop <server>                   - Stop a server");
-                    debug!("  tools <server>                  - List tools for a server");
-                    debug!("  call <server> <tool>            - Call a tool with JSON arguments");
-                    debug!("  chat <server>                   - Enter interactive chat mode with a server");
-                    debug!("  quit                            - Exit the program");
+                    info!("Available commands:");
+                    info!("  load_config <file>              - Load servers from config file");
+                    info!("  servers                         - List running servers");
+                    info!("  start <name> <command> [args]   - Start a server");
+                    info!("  stop <server>                   - Stop a server");
+                    info!("  tools <server>                  - List tools for a server");
+                    info!("  call <server> <tool>            - Call a tool with JSON arguments");
+                    info!("  chat <server>                   - Enter interactive chat mode with a server");
+                    info!("  quit                            - Exit the program");
                 }
                 "servers" => {
                     let servers = self.servers.lock().await;
-                    debug!("\nRunning servers:");
+                    info!("\nRunning servers:");
                     for (name, server) in servers.iter() {
-                        debug!("  {} - initialized: {}", name, server.initialized);
+                        info!("  {} - initialized: {}", name, server.initialized);
                     }
-                    // debug!();
+                    // info!();
                 }
                 "start" => {
                     if server_args.len() < 2 {
-                        debug!("Usage: start <name> <command> [args...]");
+                        info!("Usage: start <name> <command> [args...]");
                         continue;
                     }
 
@@ -839,57 +839,57 @@ impl MCPHost {
                     let server_extra_args = server_args[2..].to_vec().into_iter().map(String::from).collect::<Vec<_>>();
 
                     match self.start_server(server_name, server_command, &server_extra_args).await {
-                        Ok(()) => debug!("Started server '{}'", server_name),
-                        Err(e) => debug!("Error starting server: {}", e),
+                        Ok(()) => info!("Started server '{}'", server_name),
+                        Err(e) => info!("Error starting server: {}", e),
                     }
                 }
                 "stop" => {
                     if server_args.len() != 1 {
-                        debug!("Usage: stop <server>");
+                        info!("Usage: stop <server>");
                         continue;
                     }
 
                     let server_name = server_args[0];
                     match self.stop_server(server_name).await {
-                        Ok(()) => debug!("Stopped server '{}'", server_name),
-                        Err(e) => debug!("Error stopping server: {}", e),
+                        Ok(()) => info!("Stopped server '{}'", server_name),
+                        Err(e) => info!("Error stopping server: {}", e),
                     }
                 }
                 "tools" => {
                     if server_args.len() != 1 {
-                        debug!("Usage: tools <server>");
+                        info!("Usage: tools <server>");
                         continue;
                     }
 
                     let server_name = server_args[0];
                     match self.list_server_tools(server_name).await {
                         Ok(tools) => {
-                            debug!("\nAvailable tools for {}:", server_name);
+                            info!("\nAvailable tools for {}:", server_name);
                             for tool in tools {
-                                debug!("  {} - {}", tool.name, tool.description.unwrap_or_default());
+                                info!("  {} - {}", tool.name, tool.description.unwrap_or_default());
                                 let schema = tool.input_schema;
-                                debug!("    Arguments schema:");
-                                debug!("{}", serde_json::to_string_pretty(&schema)?
+                                info!("    Arguments schema:");
+                                info!("{}", serde_json::to_string_pretty(&schema)?
                                     .split('\n')
                                     .map(|line| format!("      {}", line))
                                     .collect::<Vec<_>>()
                                     .join("\n"));
                             }
-                            // debug!();
+                            // info!();
                         }
-                        Err(e) => debug!("Error: {}", e),
+                        Err(e) => info!("Error: {}", e),
                     }
                 }
                 "call" => {
                     if server_args.len() != 2 {
-                        debug!("Usage: call <server> <tool>");
+                        info!("Usage: call <server> <tool>");
                         continue;
                     }
 
                     let server_name = server_args[0];
                     let tool_name = server_args[1];
 
-                    debug!("Enter arguments (JSON):");
+                    info!("Enter arguments (JSON):");
                     let mut json_input = String::new();
                     let stdin = io::stdin(); // Standard input stream
                     stdin.read_line(&mut json_input)?;
@@ -897,7 +897,7 @@ impl MCPHost {
                     let args_value: Value = match serde_json::from_str(&json_input) {
                         Ok(v) => v,
                         Err(e) => {
-                            debug!("Invalid JSON: {}", e);
+                            info!("Invalid JSON: {}", e);
                             continue;
                         }
                     };
@@ -905,16 +905,16 @@ impl MCPHost {
                     match self.call_tool(server_name, tool_name, args_value).await {
                         Ok(result) => {
                             if result.trim().is_empty() {
-                                debug!("\nNo results returned");
+                                info!("\nNo results returned");
                             } else {
-                                debug!("\nResult:\n{}\n", result);
+                                info!("\nResult:\n{}\n", result);
                             }
                         }
-                        Err(e) => debug!("Error calling tool: {}", e),
+                        Err(e) => info!("Error calling tool: {}", e),
                     }
                 }
                 "quit" => break,
-                _ => debug!("Unknown command. Type 'help' for available commands."),
+                _ => info!("Unknown command. Type 'help' for available commands."),
             }
         }
 
@@ -938,14 +938,14 @@ async fn main() -> Result<()> {
             "load_config" if args.len() == 3 => {
                 let config_path = &args[2];
                 if let Err(e) = host.load_config(config_path).await {
-                    debug!("Error loading configuration: {}", e);
+                    info!("Error loading configuration: {}", e);
                     return Ok(());
                 }
-                debug!("Successfully loaded configuration from {}", config_path);
+                info!("Successfully loaded configuration from {}", config_path);
             }
             _ => {
-                debug!("Invalid command line arguments");
-                debug!("Usage: {} load_config <config_file>", args[0]);
+                info!("Invalid command line arguments");
+                info!("Usage: {} load_config <config_file>", args[0]);
                 return Ok(());
             }
         }
