@@ -84,13 +84,28 @@ impl MCPHost {
     }
 
     fn generate_system_prompt(&self, tools: &[serde_json::Value]) -> String {
-        // Emulating the Python script's system prompt logic
         let tools_section = serde_json::to_string_pretty(&json!({ "tools": tools })).unwrap_or("".to_string());
 
         let mut prompt = String::new();
-        prompt.push_str("You are an assistant with access to a set of tools you can use to answer the user's question.\n");
-        prompt.push_str("String and scalar parameters should be specified as is, while lists and objects should use JSON format.\n");
-        prompt.push_str("Here are the functions available in JSONSchema format:\n");
+        prompt.push_str("You are an assistant with access to tools to help answer questions and complete tasks.\n\n");
+        
+        // Add explicit tool call format instructions
+        prompt.push_str("TOOL CALL FORMAT:\n");
+        prompt.push_str("When you need to use a tool, format your response like this:\n");
+        prompt.push_str("Let me call the `tool_name` tool with these parameters:\n");
+        prompt.push_str("```json\n");
+        prompt.push_str("{ \"parameter\": \"value\" }\n");
+        prompt.push_str("```\n\n");
+        
+        prompt.push_str("MULTI-STEP EXECUTION:\n");
+        prompt.push_str("1. You can make multiple tool calls in sequence\n");
+        prompt.push_str("2. After each tool call, analyze the result and decide what to do next:\n");
+        prompt.push_str("   - Make another tool call\n");
+        prompt.push_str("   - Ask the user for clarification\n");
+        prompt.push_str("   - Provide a final answer\n");
+        prompt.push_str("3. Always explain your reasoning between steps\n\n");
+        
+        prompt.push_str("Available tools and their schemas:\n");
         prompt.push_str(&tools_section);
         prompt.push_str("\n\n**GENERAL GUIDELINES:**\n\n");
         prompt.push_str("1. Step-by-step reasoning:\n");
@@ -351,6 +366,78 @@ impl MCPHost {
         Ok(())
     }
 
+    async fn handle_assistant_response(
+        &self,
+        response: &str,
+        server_name: &str,
+        state: &mut ConversationState,
+        client: &OpenAIClient,
+    ) -> Result<()> {
+        // Add the initial assistant response to the conversation
+        state.add_assistant_message(response);
+        
+        // Initialize a loop for multiple tool calls
+        let mut current_response = response.to_string();
+        let mut iteration = 0;
+        const MAX_ITERATIONS: i32 = 5; // Prevent infinite loops
+        
+        while iteration < MAX_ITERATIONS {
+            if let Some((tool_name, args)) = parse_tool_call(&current_response) {
+                println!("Assistant: I'll call the {} tool with these parameters:", tool_name);
+                println!("{}", serde_json::to_string_pretty(&args).unwrap_or_default());
+                
+                // Execute the tool call
+                match self.call_tool(server_name, &tool_name, args).await {
+                    Ok(result) => {
+                        // Add tool result to conversation
+                        let tool_result = format!("Tool {} returned: {}", tool_name, result);
+                        state.add_system_message(&tool_result);
+                        println!("\nTool result:\n{}", result);
+                        
+                        // Get next action from assistant
+                        let mut builder = client.raw_builder().model("gpt-4");
+                        for msg in &state.messages {
+                            match msg.role {
+                                Role::System => builder = builder.system(&msg.content),
+                                Role::User => builder = builder.user(&msg.content),
+                                Role::Assistant => builder = builder.assistant(&msg.content),
+                            }
+                        }
+                        
+                        match builder.execute().await {
+                            Ok(next_response) => {
+                                println!("\nAssistant: {}", next_response);
+                                state.add_assistant_message(&next_response);
+                                current_response = next_response;
+                            }
+                            Err(e) => {
+                                println!("Error getting next response: {}", e);
+                                break;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let error_msg = format!("Error calling tool {}: {}", tool_name, e);
+                        state.add_system_message(&error_msg);
+                        println!("{}", error_msg);
+                        break;
+                    }
+                }
+            } else {
+                // No more tool calls in the response
+                break;
+            }
+            
+            iteration += 1;
+        }
+        
+        if iteration >= MAX_ITERATIONS {
+            println!("Warning: Reached maximum number of tool call iterations");
+        }
+        
+        Ok(())
+    }
+
     pub async fn run_cli(&self) -> Result<()> {
         println!("MCP Host CLI - Enter 'help' for commands");
 
@@ -403,29 +490,9 @@ impl MCPHost {
 
                                     match builder.execute().await {
                                         Ok(response) => {
-                                            // Check for tool call pattern in the response
-                                            if let Some((tool_name, args)) = parse_tool_call(&response) {
-                                                println!("Assistant: I'll call the {} tool with these parameters:", tool_name);
-                                                println!("{}", serde_json::to_string_pretty(&args).unwrap_or_default());
-                                                
-                                                // Execute the tool call
-                                                match self.call_tool(server_name, &tool_name, args).await {
-                                                    Ok(result) => {
-                                                        // Add both the assistant's response and tool result to conversation
-                                                        state.add_assistant_message(&response);
-                                                        state.add_system_message(&format!("Tool {} returned: {}", tool_name, result));
-                                                        println!("\nTool result:\n{}", result);
-                                                    }
-                                                    Err(e) => {
-                                                        let error_msg = format!("Error calling tool {}: {}", tool_name, e);
-                                                        state.add_system_message(&error_msg);
-                                                        println!("{}", error_msg);
-                                                    }
-                                                }
-                                            } else {
-                                                // Regular response without tool call
-                                                state.add_assistant_message(&response);
-                                                println!("Assistant: {}", response);
+                                            // Handle the multi-step response
+                                            if let Err(e) = self.handle_assistant_response(&response, server_name, &mut state, client).await {
+                                                println!("Error handling assistant response: {}", e);
                                             }
                                         }
                                         Err(e) => println!("Error getting response: {}", e),
