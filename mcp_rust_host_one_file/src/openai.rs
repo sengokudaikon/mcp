@@ -1003,7 +1003,6 @@ impl<'a> Processor<'a> {
 use serde::Deserialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sha2::{Sha256, Digest};
-use futures::executor::block_on;
 
 #[derive(serde::Serialize, serde::Deserialize, schemars::JsonSchema, Debug)]
 struct ImageAnalysisResult {
@@ -1011,37 +1010,6 @@ struct ImageAnalysisResult {
     extracted_code: String,
 }
 
-use env_logger::*;
 
-// The `main` function can now just demonstrate usage of this as a library
-#[tokio::main]
-async fn main() -> Result<()> {
-    env_logger::init(); // Add this line to initialize logging
-
-    info!("Main function started");
-    let api_key = match std::env::var("OPENAI_API_KEY") {
-        Ok(val) => {
-            info!("OPENAI_API_KEY found");
-            val
-        },
-        Err(e) => {
-            error!("OPENAI_API_KEY environment variable not set: {}", e);
-            panic!("OPENAI_API_KEY environment variable not set");
-        }
-    };
-
-    let client = OpenAIClient::new(api_key);
-
-    let processor = Processor::new(&client, "metadata.json", "output");
-
-    info!("Attempting to process single image");
-    if let Err(e) = processor.process_image("/Users/REP/Projects/web_scrape_mcp/screenshot.png").await {
-        error!("Error processing single image: {}", e);
-    }
-
-    info!("Main function completed");
-    Ok(())
-}
 
 use image::GenericImageView;
-use image::ImageBuffer;
