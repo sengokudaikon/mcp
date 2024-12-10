@@ -386,6 +386,12 @@ impl MCPHost {
 
         let response = self.send_request(name, request).await?;
 
+        // Check for error response
+        if let Some(error) = response.error {
+            error!("RPC Error {}: {}", error.code, error.message);
+            return Err(anyhow!("RPC Error {}: {}", error.code, error.message));
+        }
+
         if let Some(result) = response.result {
             let capabilities: ServerCapabilities = serde_json::from_value(result)?;
             let mut servers = self.servers.lock().await;
