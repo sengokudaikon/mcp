@@ -700,7 +700,7 @@ impl MCPHost {
                     }
 
                     let config_path = server_args[0];
-                    match host.load_config(config_path).await {
+                    match self.load_config(config_path).await {
                         Ok(()) => println!("Successfully loaded configuration from {}", config_path),
                         Err(e) => println!("Error loading configuration: {}", e),
                     }
@@ -874,7 +874,7 @@ impl MCPHost {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let mut host = MCPHost::new().await?;
+    let host = MCPHost::new().await?;
 
     // Start the CLI loop
     host.run_cli().await?;
