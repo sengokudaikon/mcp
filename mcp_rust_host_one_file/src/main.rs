@@ -235,10 +235,21 @@ impl MCPHost {
         let hidden_instruction = format!(
             "[ASSISTANT INSTRUCTION - FOLLOW THESE GUIDELINES STRICTLY]\n\
             GENERAL PRINCIPLES:\n\
-            - Use tools proactively - don't wait for explicit user requests\n\
+            - Use multiple tools proactively in each response when beneficial\n\
+            - Chain tools together to build comprehensive responses\n\
+            - Run preliminary tools (like searches or graph queries) before making decisions\n\
             - Follow each tool's usage patterns exactly as described\n\
-            - Chain tools together when beneficial\n\
-            - Always explain your reasoning when using tools\n\n\
+            - Always explain your reasoning between tool calls\n\
+            - Don't wait for explicit user requests to use tools\n\n\
+            TOOL USAGE PATTERN:\n\
+            1. Start responses with necessary information gathering tools\n\
+            2. Process and analyze results\n\
+            3. Use additional tools based on findings\n\
+            4. Synthesize all results into a cohesive response\n\n\
+            EXAMPLE TOOL CHAINING:\n\
+            - Search + Scrape: Find relevant URLs then extract content\n\
+            - Graph Query + Search: Check existing knowledge then find updates\n\
+            - Multiple Graph Queries: Build comprehensive user context\n\n\
             AVAILABLE TOOLS AND THEIR REQUIRED USAGE PATTERNS:\n{}",
             tool_info_list.iter().map(|tool| {
                 format!(
@@ -640,64 +651,71 @@ impl MCPHost {
         // Initialize a loop for multiple tool calls
         let mut current_response = response.to_string();
         let mut iteration = 0;
-        const MAX_ITERATIONS: i32 = 5; // Prevent infinite loops
+        const MAX_ITERATIONS: i32 = 10; // Increased from 5 to allow more tool calls
         
         while iteration < MAX_ITERATIONS {
             debug!("\nStarting iteration {} of response handling", iteration + 1);
             
-            debug!("Attempting to parse tool call from response");
-            if let Some((tool_name, args)) = parse_tool_call(&current_response) {
-                debug!("Successfully parsed tool call:");
-                debug!("Assistant: I'll call the {} tool with these parameters:", tool_name);
-                debug!("{}", serde_json::to_string_pretty(&args).unwrap_or_default());
-                
-                // Execute the tool call
-                debug!("Executing tool call to: {}", tool_name);
-                match self.call_tool(server_name, &tool_name, args).await {
-                    Ok(result) => {
-                        // Add tool result to conversation
-                        let tool_result = format!("Tool {} returned: {}", tool_name, result);
-                        state.add_system_message(&tool_result);
-                        debug!("\nTool result:\n{}", result);
+            // Try to find all tool calls in the current response
+            let mut found_tool_call = false;
+            
+            // Split response into chunks that might contain tool calls
+            let chunks: Vec<&str> = current_response.split("```").collect();
+            for (i, chunk) in chunks.iter().enumerate() {
+                if i % 2 == 1 { // Only look at content between ``` marks
+                    if let Some((tool_name, args)) = parse_tool_call(chunk) {
+                        found_tool_call = true;
+                        debug!("Found tool call in chunk {}:", i);
+                        debug!("Tool: {}", tool_name);
+                        debug!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
                         
-                        // Get next action from assistant
-                        let mut builder = client.raw_builder().model("gpt-4o");
-                        for msg in &state.messages {
-                            match msg.role {
-                                Role::System => builder = builder.system(&msg.content),
-                                Role::User => builder = builder.user(&msg.content),
-                                Role::Assistant => builder = builder.assistant(&msg.content),
+                        // Execute the tool call
+                        match self.call_tool(server_name, &tool_name, args).await {
+                            Ok(result) => {
+                                let tool_result = format!("Tool {} returned: {}", tool_name, result);
+                                state.add_system_message(&tool_result);
+                                debug!("\nTool result:\n{}", result);
+                            }
+                            Err(e) => {
+                                let error_msg = format!("Error calling tool {}: {}", tool_name, e);
+                                state.add_system_message(&error_msg);
+                                debug!("{}", error_msg);
                             }
                         }
-                        
-                        debug!("Sending request to OpenAI with timeout");
-                        match tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute()).await {
-                            Ok(Ok(response)) => {
-                                debug!("Received successful response from OpenAI");
-                                debug!("\nAssistant: {}", response);
-                                state.add_assistant_message(&response);
-                                current_response = response;
-                            }
-                            Ok(Err(e)) => {
-                                debug!("Error getting response from OpenAI API: {}", e);
-                                break;
-                            }
-                            Err(_) => {
-                                debug!("OpenAI API request timed out after 30 seconds");
-                                break;
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        let error_msg = format!("Error calling tool {}: {}", tool_name, e);
-                        state.add_system_message(&error_msg);
-                        debug!("{}", error_msg);
-                        break;
                     }
                 }
-            } else {
-                // No more tool calls in the response
+            }
+            
+            if !found_tool_call {
                 break;
+            }
+            
+            // Get next action from assistant with all accumulated context
+            let mut builder = client.raw_builder().model("gpt-4o");
+            for msg in &state.messages {
+                match msg.role {
+                    Role::System => builder = builder.system(&msg.content),
+                    Role::User => builder = builder.user(&msg.content),
+                    Role::Assistant => builder = builder.assistant(&msg.content),
+                }
+            }
+            
+            debug!("Sending request to OpenAI with timeout");
+            match tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute()).await {
+                Ok(Ok(response)) => {
+                    debug!("Received successful response from OpenAI");
+                    debug!("\nAssistant: {}", response);
+                    state.add_assistant_message(&response);
+                    current_response = response;
+                }
+                Ok(Err(e)) => {
+                    debug!("Error getting response from OpenAI API: {}", e);
+                    break;
+                }
+                Err(_) => {
+                    debug!("OpenAI API request timed out after 30 seconds");
+                    break;
+                }
             }
             
             iteration += 1;
