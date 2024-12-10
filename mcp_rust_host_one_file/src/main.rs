@@ -924,6 +924,9 @@ impl MCPHost {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Initialize logging with env_logger
+    env_logger::init();
+
     let host = MCPHost::new().await?;
 
     // Get command line arguments
