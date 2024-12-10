@@ -550,6 +550,7 @@ impl MCPHost {
 
                                     match builder.execute().await {
                                         Ok(response) => {
+                                            println!("\nAssistant: {}", response);
                                             // Handle the multi-step response
                                             if let Err(e) = self.handle_assistant_response(&response, server_name, &mut state, client).await {
                                                 println!("Error handling assistant response: {}", e);
