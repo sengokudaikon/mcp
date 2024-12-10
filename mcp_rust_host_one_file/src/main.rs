@@ -7,6 +7,8 @@ use shared_protocol_objects::Role;
 mod conversation_state;
 use conversation_state::ConversationState;
 use std::io;
+use anyhow::anyhow;
+use log::error;
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
