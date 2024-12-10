@@ -38,7 +38,7 @@ use uuid::Uuid;
 use regex::Regex;
 use lazy_static::lazy_static;
 
-async fn with_progress<F, T>(msg: &str, future: F) -> T 
+async fn with_progress<F, T>(msg: String, future: F) -> T 
 where
     F: std::future::Future<Output = T>,
 {
@@ -46,9 +46,13 @@ where
     let spinner = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
     let mut i = 0;
     
+    // Clone the message and term for the spawned task
+    let progress_msg = msg.clone();
+    let progress_term = term.clone();
+    
     let handle = tokio::spawn(async move {
         loop {
-            term.write_line(&format!("\r{} {}", spinner[i], msg))
+            progress_term.write_line(&format!("\r{} {}", spinner[i], progress_msg))
                 .unwrap_or_default();
             i = (i + 1) % spinner.len();
             tokio::time::sleep(Duration::from_millis(100)).await;
@@ -726,7 +730,7 @@ impl MCPHost {
             }
             
             info!("Sending request to OpenAI with timeout");
-            match with_progress("Waiting for AI response...", 
+            match with_progress("Waiting for AI response...".to_string(), 
                 tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute())
             ).await {
                 Ok(Ok(response)) => {
