@@ -876,7 +876,29 @@ impl MCPHost {
 async fn main() -> Result<()> {
     let host = MCPHost::new().await?;
 
-    // Start the CLI loop
+    // Get command line arguments
+    let args: Vec<String> = std::env::args().collect();
+    
+    // If arguments are provided, handle them first
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "load_config" if args.len() == 3 => {
+                let config_path = &args[2];
+                if let Err(e) = host.load_config(config_path).await {
+                    println!("Error loading configuration: {}", e);
+                    return Ok(());
+                }
+                println!("Successfully loaded configuration from {}", config_path);
+            }
+            _ => {
+                println!("Invalid command line arguments");
+                println!("Usage: {} load_config <config_file>", args[0]);
+                return Ok(());
+            }
+        }
+    }
+
+    // Start the interactive CLI loop
     host.run_cli().await?;
 
     // Stop all servers before exit
