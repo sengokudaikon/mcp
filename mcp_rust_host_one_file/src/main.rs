@@ -4,6 +4,7 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs;
 use serde::Deserialize;
+use log::info;
 
 #[derive(Debug, Deserialize)]
 struct ServerConfig {
@@ -358,7 +359,7 @@ impl MCPHost {
                 match tokio::time::timeout(
                     std::time::Duration::from_secs(10),
                     client.raw_builder()
-                        .model("gpt-4o")
+                        .model("gpt-4o-mini")
                         .system("Test message")
                         .user("Echo test")
                         .execute()
@@ -503,7 +504,7 @@ impl MCPHost {
         info!("Server: {}", server_name);
         info!("Request method: {}", request.method);
         let request_str = serde_json::to_string(&request)? + "\n";
-        info!("DEBUG: Sending request: {}", request_str.trim());
+        debug!("DEBUG: Sending request: {}", request_str.trim());
         
         // Create channels for stdin/stdout communication
         let (tx, mut rx) = mpsc::channel(1);
@@ -517,16 +518,16 @@ impl MCPHost {
             (Arc::clone(&server.stdin), Arc::clone(&server.stdout))
         };
 
-        info!("Spawning async task for request/response handling");
+        debug!("Spawning async task for request/response handling");
         // Write request and read response in a separate task
         tokio::spawn(async move {
-            info!("Async task started");
+            debug!("Async task started");
             // Write request
             {
                 let request_bytes = request_str.as_bytes().to_vec(); // Clone the data
-                info!("Acquiring stdin lock");
+                debug!("Acquiring stdin lock");
                 let mut stdin_guard = stdin.lock().await;
-                info!("Acquired stdin lock");
+                debug!("Acquired stdin lock");
                 if let Err(e) = stdin_guard.write_all(&request_bytes).await {
                     let _ = tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await;
                     return;
@@ -539,7 +540,7 @@ impl MCPHost {
             }
 
             // Read response
-            info!("Starting response read");
+            debug!("Starting response read");
             let mut response_line = String::new();
             {
                 let mut stdout_guard = stdout.lock().await;
@@ -550,7 +551,7 @@ impl MCPHost {
                         let _ = tx.send(Err(anyhow::anyhow!("Server closed connection"))).await;
                     }
                     Ok(_) => {
-                        info!("DEBUG: Received response: {}", response_line.trim());
+                        debug!("DEBUG: Received response: {}", response_line.trim());
                         match serde_json::from_str(&response_line) {
                             Ok(response) => { let _ = tx.send(Ok(response)).await; }
                             Err(e) => { 
@@ -692,7 +693,7 @@ impl MCPHost {
             }
             
             // Get next action from assistant with all accumulated context
-            let mut builder = client.raw_builder().model("gpt-4o");
+            let mut builder = client.raw_builder().model("gpt-4o-mini");
             for msg in &state.messages {
                 match msg.role {
                     Role::System => builder = builder.system(&msg.content),
@@ -780,7 +781,7 @@ impl MCPHost {
 
                                 // Use OpenAI client if available
                                 if let Some(client) = &self.openai_client {
-                                    let mut builder = client.raw_builder().model("gpt-4o");
+                                    let mut builder = client.raw_builder().model("gpt-4o-mini");
                                 
                                     // Add all messages from conversation state
                                     for msg in &state.messages {
