@@ -826,7 +826,7 @@ impl MCPHost {
                     for (name, server) in servers.iter() {
                         debug!("  {} - initialized: {}", name, server.initialized);
                     }
-                    debug!();
+                    // debug!();
                 }
                 "start" => {
                     if server_args.len() < 2 {
@@ -875,7 +875,7 @@ impl MCPHost {
                                     .collect::<Vec<_>>()
                                     .join("\n"));
                             }
-                            debug!();
+                            // debug!();
                         }
                         Err(e) => debug!("Error: {}", e),
                     }
