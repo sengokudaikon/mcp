@@ -389,7 +389,7 @@ impl<'a> RawCompletionBuilder<'a> {
             return Err(anyhow::anyhow!("API request failed with status {}: {}", status, error_text));
         }
 
-        let response_text = response.text().await?;
+        let response_text: String = response.text().await?;
         debug!("Full API response (raw): {}", response_text);
 
         let response_json: Value = match serde_json::from_str(&response_text) {
