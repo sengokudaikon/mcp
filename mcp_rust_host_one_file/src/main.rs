@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::collections::HashMap;
+use std::fs;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -376,7 +377,7 @@ impl MCPHost {
                .stdout(Stdio::piped())
                .stderr(Stdio::piped());
 
-        let child = command.spawn()?;
+        let mut child = command.spawn()?;
         let child_stdin = child.stdin.take().expect("Failed to get stdin");
         let stdin = Arc::new(Mutex::new(ChildStdin::from_std(child_stdin)?));
 
@@ -873,7 +874,7 @@ impl MCPHost {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let host = MCPHost::new().await?;
+    let mut host = MCPHost::new().await?;
 
     // Start the CLI loop
     host.run_cli().await?;
