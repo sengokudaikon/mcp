@@ -418,6 +418,9 @@ impl MCPHost {
         state: &mut ConversationState,
         client: &OpenAIClient,
     ) -> Result<()> {
+        println!("Starting handle_assistant_response");
+        println!("Server: {}", server_name);
+        println!("Response length: {} chars", response.len());
         println!("Adding initial assistant response to conversation state");
         state.add_assistant_message(response);
         println!("Added response to conversation state");
