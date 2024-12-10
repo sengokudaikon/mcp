@@ -1,6 +1,20 @@
 use anyhow::Result;
 use serde_json::{Value, json};
 use std::collections::HashMap;
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+struct ServerConfig {
+    command: String,
+    #[serde(default)]
+    env: HashMap<String, String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Config {
+    #[serde(rename = "mcpServers")]
+    servers: HashMap<String, ServerConfig>,
+}
 mod openai;
 use openai::OpenAIClient;
 use shared_protocol_objects::Role;
@@ -338,14 +352,31 @@ impl MCPHost {
         })
     }
 
-    pub async fn start_server(&self, name: &str, command: &str, args: &[String]) -> Result<()> {
-        let mut child = Command::new(command)
-            .args(args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()?;
+    pub async fn load_config(&self, config_path: &str) -> Result<()> {
+        let config_str = fs::read_to_string(config_path)?;
+        let config: Config = serde_json::from_str(&config_str)?;
+        
+        for (name, server_config) in config.servers {
+            // Start each configured server
+            let mut command = Command::new(&server_config.command);
+            
+            // Set environment variables if specified
+            for (key, value) in server_config.env {
+                command.env(key, value);
+            }
+            
+            self.start_server_with_command(&name, command).await?;
+        }
+        
+        Ok(())
+    }
 
+    async fn start_server_with_command(&self, name: &str, mut command: Command) -> Result<()> {
+        command.stdin(Stdio::piped())
+               .stdout(Stdio::piped())
+               .stderr(Stdio::piped());
+
+        let child = command.spawn()?;
         let child_stdin = child.stdin.take().expect("Failed to get stdin");
         let stdin = Arc::new(Mutex::new(ChildStdin::from_std(child_stdin)?));
 
@@ -369,6 +400,12 @@ impl MCPHost {
         self.initialize_server(name).await?;
 
         Ok(())
+    }
+
+    pub async fn start_server(&self, name: &str, command: &str, args: &[String]) -> Result<()> {
+        let mut cmd = Command::new(command);
+        cmd.args(args);
+        self.start_server_with_command(name, cmd).await
     }
 
     async fn initialize_server(&self, name: &str) -> Result<()> {
@@ -655,6 +692,18 @@ impl MCPHost {
             let server_args = &args[1..];
 
             match command {
+                "load_config" => {
+                    if server_args.len() != 1 {
+                        println!("Usage: load_config <config_file>");
+                        continue;
+                    }
+
+                    let config_path = server_args[0];
+                    match host.load_config(config_path).await {
+                        Ok(()) => println!("Successfully loaded configuration from {}", config_path),
+                        Err(e) => println!("Error loading configuration: {}", e),
+                    }
+                },
                 "chat" => {
                     if server_args.len() != 1 {
                         println!("Usage: chat <server>");
@@ -711,6 +760,7 @@ impl MCPHost {
                 }
                 "help" => {
                     println!("Available commands:");
+                    println!("  load_config <file>              - Load servers from config file");
                     println!("  servers                         - List running servers");
                     println!("  start <name> <command> [args]   - Start a server");
                     println!("  stop <server>                   - Stop a server");
