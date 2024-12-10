@@ -260,8 +260,8 @@ impl MCPHost {
             }).collect::<Vec<_>>().join("\n\n")
         );
         
-        // Add the hidden instruction as a system message
-        state.add_system_message(&hidden_instruction);
+        // Add the hidden instruction as a user message instead of a system message
+        state.add_user_message(&hidden_instruction);
 
         Ok(state)
     }
