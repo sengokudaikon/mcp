@@ -435,14 +435,18 @@ impl MCPHost {
                             }
                         }
                         
-                        match builder.execute().await {
-                            Ok(next_response) => {
-                                println!("\nAssistant: {}", next_response);
-                                state.add_assistant_message(&next_response);
-                                current_response = next_response;
+                        match tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute()).await {
+                            Ok(Ok(response)) => {
+                                println!("\nAssistant: {}", response);
+                                state.add_assistant_message(&response);
+                                current_response = response;
                             }
-                            Err(e) => {
-                                println!("Error getting next response: {}", e);
+                            Ok(Err(e)) => {
+                                println!("Error getting response from OpenAI API: {}", e);
+                                break;
+                            }
+                            Err(_) => {
+                                println!("OpenAI API request timed out after 30 seconds");
                                 break;
                             }
                         }
