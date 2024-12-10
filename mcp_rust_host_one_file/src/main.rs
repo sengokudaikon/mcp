@@ -21,19 +21,57 @@ use lazy_static::lazy_static;
 // Helper function to parse tool calls from assistant responses
 fn parse_tool_call(response: &str) -> Option<(String, Value)> {
     lazy_static! {
-        static ref TOOL_PATTERN: Regex = Regex::new(
-            r"(?s)Let me call the `([^`]+)` tool with these parameters:\s*```(?:json)?\s*(\{.*?\})\s*```"
-        ).unwrap();
+        // Multiple patterns to handle different formats
+        static ref TOOL_PATTERNS: Vec<Regex> = vec![
+            // Original format
+            Regex::new(
+                r"(?s)Let me call the `([^`]+)` tool with these parameters:\s*```(?:json)?\s*(\{.*?\})\s*```"
+            ).unwrap(),
+            // Alternative format without "tool"
+            Regex::new(
+                r"(?s)Let me call `([^`]+)` with these parameters:\s*```(?:json)?\s*(\{.*?\})\s*```"
+            ).unwrap(),
+            // Just the JSON block format
+            Regex::new(
+                r"(?s)```(?:json)?\s*(\{.*?\})\s*```"
+            ).unwrap(),
+        ];
     }
 
-    if let Some(captures) = TOOL_PATTERN.captures(response) {
-        if captures.len() >= 3 {
-            let tool_name = captures[1].to_string();
-            if let Ok(args) = serde_json::from_str(&captures[2]) {
-                return Some((tool_name, args));
+    // Try each pattern in sequence
+    for pattern in TOOL_PATTERNS.iter() {
+        if let Some(captures) = pattern.captures(response) {
+            // Handle the case where we only matched a JSON block
+            if captures.len() == 2 {
+                // Try to parse the JSON to extract tool name and parameters
+                if let Ok(json) = serde_json::from_str::<Value>(&captures[1]) {
+                    if let Some(action) = json.get("action").and_then(|v| v.as_str()) {
+                        return Some(("graph_tool".to_string(), json));
+                    }
+                }
+            } else if captures.len() >= 3 {
+                // Handle normal tool call format
+                let tool_name = captures[1].to_string();
+                if let Ok(args) = serde_json::from_str(&captures[2]) {
+                    return Some((tool_name, args));
+                }
             }
         }
     }
+
+    // Additional fallback: Look for just a JSON object anywhere in the text
+    if let Some(json_start) = response.find('{') {
+        if let Some(json_end) = response.rfind('}') {
+            let json_str = &response[json_start..=json_end];
+            if let Ok(json) = serde_json::from_str::<Value>(json_str) {
+                // If it has an "action" field, assume it's a graph_tool call
+                if json.get("action").is_some() {
+                    return Some(("graph_tool".to_string(), json));
+                }
+            }
+        }
+    }
+
     None
 }
 
