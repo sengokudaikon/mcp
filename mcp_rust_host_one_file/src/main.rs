@@ -752,8 +752,8 @@ impl MCPHost {
 
                     let config_path = server_args[0];
                     match self.load_config(config_path).await {
-                        Ok(()) => info!("Successfully loaded configuration from {}", config_path),
-                        Err(e) => info!("Error loading configuration: {}", e),
+                        Ok(()) => println!("{} {}", style("Successfully loaded configuration from").green().bold(), config_path),
+                        Err(e) => println!("{}: {}", style("Error loading configuration").red().bold(), e),
                     }
                 },
                 "chat" => {
