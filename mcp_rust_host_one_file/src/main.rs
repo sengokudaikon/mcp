@@ -15,6 +15,27 @@ use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::time::timeout;
 use uuid::Uuid;
+use regex::Regex;
+use lazy_static::lazy_static;
+
+// Helper function to parse tool calls from assistant responses
+fn parse_tool_call(response: &str) -> Option<(String, Value)> {
+    lazy_static! {
+        static ref TOOL_PATTERN: Regex = Regex::new(
+            r"(?s)Let me call the `([^`]+)` tool with these parameters:\s*```(?:json)?\s*(\{.*?\})\s*```"
+        ).unwrap();
+    }
+
+    if let Some(captures) = TOOL_PATTERN.captures(response) {
+        if captures.len() >= 3 {
+            let tool_name = captures[1].to_string();
+            if let Ok(args) = serde_json::from_str(&captures[2]) {
+                return Some((tool_name, args));
+            }
+        }
+    }
+    None
+}
 
 use shared_protocol_objects::{
     JsonRpcRequest, JsonRpcResponse, ServerCapabilities, Implementation,
@@ -382,8 +403,30 @@ impl MCPHost {
 
                                     match builder.execute().await {
                                         Ok(response) => {
-                                            state.add_assistant_message(&response);
-                                            println!("Assistant: {}", response);
+                                            // Check for tool call pattern in the response
+                                            if let Some((tool_name, args)) = parse_tool_call(&response) {
+                                                println!("Assistant: I'll call the {} tool with these parameters:", tool_name);
+                                                println!("{}", serde_json::to_string_pretty(&args).unwrap_or_default());
+                                                
+                                                // Execute the tool call
+                                                match self.call_tool(server_name, &tool_name, args).await {
+                                                    Ok(result) => {
+                                                        // Add both the assistant's response and tool result to conversation
+                                                        state.add_assistant_message(&response);
+                                                        state.add_system_message(&format!("Tool {} returned: {}", tool_name, result));
+                                                        println!("\nTool result:\n{}", result);
+                                                    }
+                                                    Err(e) => {
+                                                        let error_msg = format!("Error calling tool {}: {}", tool_name, e);
+                                                        state.add_system_message(&error_msg);
+                                                        println!("{}", error_msg);
+                                                    }
+                                                }
+                                            } else {
+                                                // Regular response without tool call
+                                                state.add_assistant_message(&response);
+                                                println!("Assistant: {}", response);
+                                            }
                                         }
                                         Err(e) => println!("Error getting response: {}", e),
                                     }
