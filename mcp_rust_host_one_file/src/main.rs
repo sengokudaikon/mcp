@@ -18,58 +18,154 @@ use uuid::Uuid;
 use regex::Regex;
 use lazy_static::lazy_static;
 
-// Helper function to parse tool calls from assistant responses
+// Helper functions for parsing tool calls
+fn extract_json_after_position(text: &str, pos: usize) -> Option<Value> {
+    if let Some(json_start) = text[pos..].find('{') {
+        let start_pos = pos + json_start;
+        let mut brace_count = 0;
+        let mut end_pos = start_pos;
+        
+        for (i, c) in text[start_pos..].chars().enumerate() {
+            match c {
+                '{' => brace_count += 1,
+                '}' => {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        end_pos = start_pos + i + 1;
+                        break;
+                    }
+                }
+                _ => continue,
+            }
+        }
+
+        if brace_count == 0 {
+            if let Ok(json) = serde_json::from_str(&text[start_pos..end_pos]) {
+                return Some(json);
+            }
+        }
+    }
+    None
+}
+
+fn find_any_json(text: &str) -> Option<Value> {
+    let mut start_indices: Vec<usize> = text.match_indices('{').map(|(i, _)| i).collect();
+    start_indices.sort_unstable(); // Sort in case there are multiple JSON objects
+
+    for start in start_indices {
+        let mut brace_count = 0;
+        let mut end_pos = start;
+        
+        for (i, c) in text[start..].chars().enumerate() {
+            match c {
+                '{' => brace_count += 1,
+                '}' => {
+                    brace_count -= 1;
+                    if brace_count == 0 {
+                        end_pos = start + i + 1;
+                        break;
+                    }
+                }
+                _ => continue,
+            }
+        }
+
+        if brace_count == 0 {
+            if let Ok(json) = serde_json::from_str(&text[start..end_pos]) {
+                return Some(json);
+            }
+        }
+    }
+    None
+}
+
+fn infer_tool_from_json(json: &Value) -> Option<(String, Value)> {
+    // Common patterns to identify tools
+    if json.get("action").is_some() {
+        return Some(("graph_tool".to_string(), json.clone()));
+    }
+    if json.get("query").is_some() {
+        return Some(("brave_search".to_string(), json.clone()));
+    }
+    if json.get("url").is_some() {
+        return Some(("scrape_url".to_string(), json.clone()));
+    }
+    if json.get("command").is_some() {
+        return Some(("bash".to_string(), json.clone()));
+    }
+    
+    // If we can't infer the tool, return None
+    None
+}
+
+// Main tool call parsing function
 fn parse_tool_call(response: &str) -> Option<(String, Value)> {
     lazy_static! {
-        // Multiple patterns to handle different formats
+        // Multiple patterns to match different formats
         static ref TOOL_PATTERNS: Vec<Regex> = vec![
-            // Original format
+            // Standard format with tool keyword
             Regex::new(
                 r"(?s)Let me call the `([^`]+)` tool with these parameters:\s*```(?:json)?\s*(\{.*?\})\s*```"
             ).unwrap(),
-            // Alternative format without "tool"
+            // Without "tool" keyword
             Regex::new(
                 r"(?s)Let me call `([^`]+)` with these parameters:\s*```(?:json)?\s*(\{.*?\})\s*```"
             ).unwrap(),
-            // Just the JSON block format
+            // More variations
+            Regex::new(
+                r"(?s)Using the `([^`]+)` tool:?\s*```(?:json)?\s*(\{.*?\})\s*```"
+            ).unwrap(),
+            Regex::new(
+                r"(?s)I'll use `([^`]+)`:?\s*```(?:json)?\s*(\{.*?\})\s*```"
+            ).unwrap(),
+            // Tool name with JSON anywhere
+            Regex::new(
+                r"(?s)`([^`]+)`.*?```(?:json)?\s*(\{.*?\})\s*```"
+            ).unwrap(),
+            // Just the JSON block
             Regex::new(
                 r"(?s)```(?:json)?\s*(\{.*?\})\s*```"
             ).unwrap(),
         ];
     }
 
-    // Try each pattern in sequence
+    // First try: Look for explicit tool name and JSON patterns
     for pattern in TOOL_PATTERNS.iter() {
         if let Some(captures) = pattern.captures(response) {
-            // Handle the case where we only matched a JSON block
-            if captures.len() == 2 {
-                // Try to parse the JSON to extract tool name and parameters
-                if let Ok(json) = serde_json::from_str::<Value>(&captures[1]) {
-                    if let Some(action) = json.get("action").and_then(|v| v.as_str()) {
-                        return Some(("graph_tool".to_string(), json));
+            match captures.len() {
+                // Just JSON block
+                2 => {
+                    if let Ok(json) = serde_json::from_str(&captures[1]) {
+                        // Try to infer tool from JSON content
+                        return infer_tool_from_json(&json);
                     }
-                }
-            } else if captures.len() >= 3 {
-                // Handle normal tool call format
-                let tool_name = captures[1].to_string();
-                if let Ok(args) = serde_json::from_str(&captures[2]) {
-                    return Some((tool_name, args));
-                }
+                },
+                // Tool name and JSON
+                3 => {
+                    let tool_name = captures[1].to_string();
+                    if let Ok(args) = serde_json::from_str(&captures[2]) {
+                        return Some((tool_name, args));
+                    }
+                },
+                _ => continue,
             }
         }
     }
 
-    // Additional fallback: Look for just a JSON object anywhere in the text
-    if let Some(json_start) = response.find('{') {
-        if let Some(json_end) = response.rfind('}') {
-            let json_str = &response[json_start..=json_end];
-            if let Ok(json) = serde_json::from_str::<Value>(json_str) {
-                // If it has an "action" field, assume it's a graph_tool call
-                if json.get("action").is_some() {
-                    return Some(("graph_tool".to_string(), json));
-                }
+    // Second try: Look for backtick-wrapped tool names and nearby JSON
+    if let Some(tool_start) = response.find('`') {
+        if let Some(tool_end) = response[tool_start + 1..].find('`') {
+            let tool_name = response[tool_start + 1..tool_start + 1 + tool_end].to_string();
+            // Look for JSON after the tool name
+            if let Some(json) = extract_json_after_position(response, tool_start + tool_end) {
+                return Some((tool_name, json));
             }
         }
+    }
+
+    // Third try: Look for any JSON object and try to infer the tool
+    if let Some(json) = find_any_json(response) {
+        return infer_tool_from_json(&json);
     }
 
     None
