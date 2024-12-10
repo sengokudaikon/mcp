@@ -275,6 +275,9 @@ impl MCPHost {
     }
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
+        println!("\n=== Starting send_request ===");
+        println!("Server: {}", server_name);
+        println!("Request method: {}", request.method);
         let request_str = serde_json::to_string(&request)? + "\n";
         println!("DEBUG: Sending request: {}", request_str.trim());
         
@@ -290,12 +293,16 @@ impl MCPHost {
             (Arc::clone(&server.stdin), Arc::clone(&server.stdout))
         };
 
+        println!("Spawning async task for request/response handling");
         // Write request and read response in a separate task
         tokio::spawn(async move {
+            println!("Async task started");
             // Write request
             {
                 let request_bytes = request_str.as_bytes().to_vec(); // Clone the data
+                println!("Acquiring stdin lock");
                 let mut stdin_guard = stdin.lock().await;
+                println!("Acquired stdin lock");
                 if let Err(e) = stdin_guard.write_all(&request_bytes).await {
                     let _ = tx.send(Err(anyhow::anyhow!("Failed to write to stdin: {}", e))).await;
                     return;
@@ -308,6 +315,7 @@ impl MCPHost {
             }
 
             // Read response
+            println!("Starting response read");
             let mut response_line = String::new();
             {
                 let mut stdout_guard = stdout.lock().await;
@@ -350,12 +358,18 @@ impl MCPHost {
             params: None,
         };
 
+        println!("Sending tool call request to server");
         let response = self.send_request(server_name, request).await?;
+        println!("Received response from server");
         let tools: ListToolsResult = serde_json::from_value(response.result.unwrap_or_default())?;
         Ok(tools.tools)
     }
 
     pub async fn call_tool(&self, server_name: &str, tool_name: &str, args: Value) -> Result<String> {
+        println!("call_tool started");
+        println!("Server: {}", server_name);
+        println!("Tool: {}", tool_name);
+        println!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: RequestId::String(Uuid::new_v4().to_string()).into(),
@@ -404,8 +418,9 @@ impl MCPHost {
         state: &mut ConversationState,
         client: &OpenAIClient,
     ) -> Result<()> {
-        // Add the initial assistant response to the conversation
+        println!("Adding initial assistant response to conversation state");
         state.add_assistant_message(response);
+        println!("Added response to conversation state");
         
         // Initialize a loop for multiple tool calls
         let mut current_response = response.to_string();
@@ -413,11 +428,16 @@ impl MCPHost {
         const MAX_ITERATIONS: i32 = 5; // Prevent infinite loops
         
         while iteration < MAX_ITERATIONS {
+            println!("\nStarting iteration {} of response handling", iteration + 1);
+            
+            println!("Attempting to parse tool call from response");
             if let Some((tool_name, args)) = parse_tool_call(&current_response) {
+                println!("Successfully parsed tool call:");
                 println!("Assistant: I'll call the {} tool with these parameters:", tool_name);
                 println!("{}", serde_json::to_string_pretty(&args).unwrap_or_default());
                 
                 // Execute the tool call
+                println!("Executing tool call to: {}", tool_name);
                 match self.call_tool(server_name, &tool_name, args).await {
                     Ok(result) => {
                         // Add tool result to conversation
@@ -435,8 +455,10 @@ impl MCPHost {
                             }
                         }
                         
+                        println!("Sending request to OpenAI with timeout");
                         match tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute()).await {
                             Ok(Ok(response)) => {
+                                println!("Received successful response from OpenAI");
                                 println!("\nAssistant: {}", response);
                                 state.add_assistant_message(&response);
                                 current_response = response;
