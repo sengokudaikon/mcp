@@ -217,7 +217,7 @@ impl MCPHost {
         // Fetch tools from the server
         let tool_info_list = self.list_server_tools(server_name).await?;
 
-        // Convert our tool list to a JSON structure similar to the Python code
+        // Convert our tool list to a JSON structure
         let tools_json: Vec<serde_json::Value> = tool_info_list.iter().map(|t| {
             json!({
                 "name": t.name,
@@ -229,7 +229,39 @@ impl MCPHost {
         let system_prompt = self.generate_system_prompt(&tools_json);
 
         // Create the conversation state
-        let state = ConversationState::new(system_prompt, tool_info_list);
+        let mut state = ConversationState::new(system_prompt, tool_info_list.clone());
+        
+        // Create a hidden instruction message that combines static guidance with dynamic tool info
+        let hidden_instruction = format!(
+            "[ASSISTANT INSTRUCTION - FOLLOW THESE GUIDELINES STRICTLY]\n\
+            GENERAL PRINCIPLES:\n\
+            - Use tools proactively - don't wait for explicit user requests\n\
+            - Follow each tool's usage patterns exactly as described\n\
+            - Chain tools together when beneficial\n\
+            - Always explain your reasoning when using tools\n\n\
+            AVAILABLE TOOLS AND THEIR REQUIRED USAGE PATTERNS:\n{}",
+            tool_info_list.iter().map(|tool| {
+                format!(
+                    "Tool: {}\n\
+                    Description: {}\n\
+                    Usage Requirements: {}\n\
+                    Schema: {}\n",
+                    tool.name,
+                    tool.description.as_ref().unwrap_or(&"".to_string()),
+                    // Extract any usage requirements from description (usually in caps or after "ALWAYS")
+                    tool.description.as_ref()
+                        .unwrap_or(&"".to_string())
+                        .lines()
+                        .filter(|line| line.contains("ALWAYS") || line.contains("MUST") || line.contains("NEVER"))
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    serde_json::to_string_pretty(&tool.input_schema).unwrap_or_default()
+                )
+            }).collect::<Vec<_>>().join("\n\n")
+        );
+        
+        // Add the hidden instruction as a system message
+        state.add_system_message(&hidden_instruction);
 
         Ok(state)
     }
