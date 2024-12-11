@@ -4,6 +4,35 @@ mod regex_replace;
 use need_to_implement::{GraphManager, handle_graph_tool_call, graph_tool_info};
 use regex_replace::{handle_regex_replace_tool_call, regex_replace_tool_info};
 use git_integration::{handle_git_tool_call, git_tool_info};
+use serde_json::Value;
+
+fn detect_intended_tool_call(json: &Value) -> Option<String> {
+    // Common tool parameter names and their likely tools
+    let tool_hints = [
+        (vec!["file_path", "pattern", "replacement"], "regex_replace"),
+        (vec!["command"], "bash"),
+        (vec!["url"], "scrape_url"),
+        (vec!["query"], "brave_search"),
+        (vec!["action", "repo_path", "files", "message"], "git"),
+        (vec!["action", "params", "name", "description", "content"], "graph_tool")
+    ];
+
+    // If it's an object, check its fields
+    if let Some(obj) = json.as_object() {
+        for (params, tool_name) in tool_hints.iter() {
+            // Count how many of the hint parameters are present
+            let matches = params.iter()
+                .filter(|&param| obj.contains_key(*param))
+                .count();
+            
+            // If we find more than half of the expected parameters, this is probably the intended tool
+            if matches >= (params.len() + 1) / 2 {
+                return Some((*tool_name).to_string());
+            }
+        }
+    }
+    None
+}
 use shared_protocol_objects::{
     ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
     InitializeResult, ClientCapabilities,
@@ -106,6 +135,31 @@ async fn main() {
         let req = match parsed {
             Ok(req) => req,
             Err(_) => {
+                // Try parsing as raw JSON first
+                if let Ok(raw_json) = serde_json::from_str::<Value>(&line) {
+                    // Check if this looks like an attempted tool call
+                    if let Some(intended_tool) = detect_intended_tool_call(&raw_json) {
+                        let error_msg = format!(
+                            "It looks like you were trying to use the '{}' tool, but the request wasn't properly formatted.\n\
+                            Tool calls must use this format:\n\
+                            {{\n  \
+                              \"jsonrpc\": \"2.0\",\n  \
+                              \"id\": 1,\n  \
+                              \"method\": \"tools/call\",\n  \
+                              \"params\": {{\n    \
+                                \"name\": \"{}\",\n    \
+                                \"arguments\": {}\n  \
+                              }}\n\
+                            }}", 
+                            intended_tool,
+                            intended_tool,
+                            raw_json.to_string()
+                        );
+                        let resp = error_response(None, PARSE_ERROR, &error_msg);
+                        let _ = tx_out.send(resp);
+                        continue;
+                    }
+                }
                 let resp = error_response(None, PARSE_ERROR, "Parse error");
                 let _ = tx_out.send(resp);
                 continue;
