@@ -684,6 +684,11 @@ async fn handle_request(
                             }
                             Err(e) => Some(error_response(id, INTERNAL_ERROR, &e.to_string())),
                         }
+                    } else if t.name == "git" {
+                        match handle_git_tool_call(params, id.clone()).await {
+                            Ok(resp) => Some(resp),
+                            Err(e) => Some(error_response(id, INTERNAL_ERROR, &e.to_string()))
+                        }
                     } else if t.name == "brave_search" {
                         let query = match params.arguments.get("query").and_then(Value::as_str) {
                             Some(q) => q.to_string(),
