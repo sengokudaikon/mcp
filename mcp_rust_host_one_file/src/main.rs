@@ -7,14 +7,14 @@ use serde::Deserialize;
 use log::info;
 use tokio::time::Duration;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct ServerConfig {
     command: String,
     #[serde(default)]
     env: HashMap<String, String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 struct Config {
     #[serde(rename = "mcpServers")]
     servers: HashMap<String, ServerConfig>,
