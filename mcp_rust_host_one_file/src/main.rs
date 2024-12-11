@@ -322,70 +322,57 @@ impl MCPHost {
     fn generate_system_prompt(&self, tools: &[serde_json::Value]) -> String {
         let tools_section = serde_json::to_string_pretty(&json!({ "tools": tools })).unwrap_or("".to_string());
 
-        let mut prompt = String::new();
-        prompt.push_str("You are an assistant with access to tools to help answer questions and complete tasks.\n\n");
-        
-        // Add explicit tool call format instructions
-        prompt.push_str("TOOL CALL FORMAT:\n");
-        prompt.push_str("When you need to use a tool, format your response like this:\n");
-        prompt.push_str("Let me call the `tool_name` tool with these parameters:\n");
-        prompt.push_str("```json\n");
-        prompt.push_str("{ \"parameter\": \"value\" }\n");
-        prompt.push_str("```\n\n");
-        
-        prompt.push_str("MULTI-STEP EXECUTION:\n");
-        prompt.push_str("1. You can make multiple tool calls in sequence\n");
-        prompt.push_str("2. After each tool call, analyze the result and decide what to do next:\n");
-        prompt.push_str("   - Make another tool call\n");
-        prompt.push_str("   - Ask the user for clarification\n");
-        prompt.push_str("   - Provide a final answer\n");
-        prompt.push_str("3. Always explain your reasoning between steps\n\n");
-        
-        prompt.push_str("Available tools and their schemas:\n");
-        prompt.push_str(&tools_section);
-        prompt.push_str("\n\n**GENERAL GUIDELINES:**\n\n");
-        prompt.push_str("1. Step-by-step reasoning:\n");
-        prompt.push_str("   - Analyze tasks systematically.\n");
-        prompt.push_str("   - Break down complex problems into smaller, manageable parts.\n");
-        prompt.push_str("   - Verify assumptions at each step to avoid errors.\n");
-        prompt.push_str("   - Reflect on results to improve subsequent actions.\n\n");
-        prompt.push_str("2. Effective tool usage:\n");
-        prompt.push_str("   - Explore:\n");
-        prompt.push_str("     - Identify available information and verify its structure.\n");
-        prompt.push_str("     - Check assumptions and understand data relationships.\n");
-        prompt.push_str("   - Iterate:\n");
-        prompt.push_str("     - Start with simple queries or actions.\n");
-        prompt.push_str("     - Build upon successes, adjusting based on observations.\n");
-        prompt.push_str("   - Handle errors:\n");
-        prompt.push_str("     - Carefully analyze error messages.\n");
-        prompt.push_str("     - Use errors as a guide to refine your approach.\n");
-        prompt.push_str("     - Document what went wrong and suggest fixes.\n\n");
-        prompt.push_str("3. Clear communication:\n");
-        prompt.push_str("   - Explain your reasoning and decisions at each step.\n");
-        prompt.push_str("   - Share discoveries transparently with the user.\n");
-        prompt.push_str("   - Outline next steps or ask clarifying questions as needed.\n\n");
+        let prompt = format!(r#"You are an assistant with access to tools to help answer questions and complete tasks.
 
-        prompt.push_str("EXAMPLES OF BEST PRACTICES:\n\n");
-        prompt.push_str("- Working with databases:\n");
-        prompt.push_str("  - Check schema before writing queries.\n");
-        prompt.push_str("  - Verify the existence of columns or tables.\n");
-        prompt.push_str("  - Start with basic queries and refine based on results.\n\n");
-        prompt.push_str("- Processing data:\n");
-        prompt.push_str("  - Validate data formats and handle edge cases.\n");
-        prompt.push_str("  - Ensure integrity and correctness of results.\n\n");
-        prompt.push_str("- Accessing resources:\n");
-        prompt.push_str("  - Confirm resource availability and permissions.\n");
-        prompt.push_str("  - Handle missing or incomplete data gracefully.\n\n");
+TOOL INVOCATION FORMAT - THIS IS CRITICAL:
+When you want to use a tool, simply output EXACTLY this format and the system will automatically parse and execute it:
 
-        prompt.push_str("REMEMBER:\n");
-        prompt.push_str("- Be thorough and systematic.\n");
-        prompt.push_str("- Each tool call should have a clear and well-explained purpose.\n");
-        prompt.push_str("- Make reasonable assumptions if ambiguous.\n");
-        prompt.push_str("- Minimize unnecessary user interactions by providing actionable insights.\n\n");
+Let me call the `tool_name` tool with these parameters:
+```json
+{{ "parameter": "value" }}
+```
 
-        prompt.push_str("EXAMPLES OF ASSUMPTIONS:\n");
-        prompt.push_str("- Default sorting (e.g., descending order) if not specified.\n");
-        prompt.push_str("- Assume basic user intentions, such as fetching top results by a common metric.\n");
+EXAMPLE INVOCATIONS (these will be automatically detected and executed):
+
+1. To search the web:
+Let me call the `brave_search` tool with these parameters:
+```json
+{{
+    "query": "latest news about AI",
+    "count": 5
+}}
+```
+
+2. To scrape a webpage:
+Let me call the `scrape_url` tool with these parameters:
+```json
+{{
+    "url": "https://example.com/article"
+}}
+```
+
+3. To run a shell command:
+Let me call the `bash` tool with these parameters:
+```json
+{{
+    "command": "uname -a"
+}}
+```
+
+IMPORTANT:
+- Just output the tool invocation exactly as shown - the system will automatically detect and execute it
+- The backticks around the tool name are REQUIRED
+- The json block MUST be wrapped in ```json and ``` markers
+- You can make multiple tool calls in sequence
+- Each tool call will be automatically detected and executed
+- Wait for each tool's response before making additional calls
+- The system handles all parsing and execution - just output the format
+
+Available tools and their schemas:
+{tools_section}
+
+REMEMBER: Just output the tool invocation format exactly as shown above. The system will handle everything else automatically.
+"#);
 
         prompt
     }
