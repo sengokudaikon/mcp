@@ -541,7 +541,7 @@ async fn handle_request(
 
                         let scrapingbee_api_key = std::env::var("SCRAPINGBEE_API_KEY")
                             .expect("SCRAPINGBEE_API_KEY environment variable must be set");
-                        let client = ScrapingBeeClient::new(&scrapingbee_api_key)
+                        let client = ScrapingBeeClient::new(scrapingbee_api_key.clone())
                             .url(&url)
                             .render_js(true);
 
