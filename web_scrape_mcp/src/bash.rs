@@ -29,7 +29,7 @@ impl BashExecutor {
         }
     }
 
-    pub fn execute(&self, params: BashParams) -> Result<BashResult> {
+    pub async fn execute(&self, params: BashParams) -> Result<BashResult> {
         let output = Command::new("sh")
             .arg("-c")
             .arg(&params.command)

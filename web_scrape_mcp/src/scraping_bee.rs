@@ -15,15 +15,15 @@ pub struct ScrapingBeeClient {
 }
 
 impl ScrapingBeeClient {
-    pub fn new(api_key: String) -> Self {
+    pub fn new(api_key: &str) -> Self {
         Self {
             client: Client::new(),
-            api_key,
+            api_key: api_key.to_string(),
             render_js: false,
         }
     }
 
-    pub fn url(mut self, _url: &str) -> Self {
+    pub fn url(self, _url: &str) -> Self {
         self
     }
 

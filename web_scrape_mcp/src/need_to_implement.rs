@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use serde::{Serialize, Deserialize}; 
 
 pub const DEFAULT_GRAPH_DIR: &str = "/tmp/knowledge_graphs";
-use petgraph::Graph;
-use petgraph::graph::NodeIndex;
+use petgraph::{Graph, adj::IndexType};
+use petgraph::graph::{NodeIndex, IndexType as GraphIndexType};
 use petgraph::visit::EdgeRef;
 use serde_json::{json, Value};
 use anyhow::{Result, anyhow};
@@ -153,13 +153,13 @@ impl GraphManager {
         // Convert to serializable format with better error handling
         let serializable = SerializableGraph {
             nodes: self.graph.node_indices()
-                .map(|idx| (idx, self.graph[idx].clone()))
+                .map(|idx| (idx.index(), self.graph[idx].clone()))
                 .collect(),
             edges: self.graph.edge_indices()
                 .map(|idx| {
                     let (a, b) = self.graph.edge_endpoints(idx)
                         .ok_or_else(|| anyhow!("Invalid edge index {}", idx.index()))?;
-                    Ok((a, b, self.graph[idx].clone()))
+                    Ok((a.index(), b.index(), self.graph[idx].clone()))
                 })
                 .collect::<Result<Vec<_>>>()?,
         };
