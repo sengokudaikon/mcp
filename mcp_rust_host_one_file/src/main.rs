@@ -3,7 +3,7 @@ use console::{style, Term};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use log::info;
 use tokio::time::Duration;
 
