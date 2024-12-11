@@ -366,6 +366,21 @@ impl MCPHost {
         // Add the hidden instruction as a user message instead of a system message
         state.add_user_message(&hidden_instruction);
 
+        // Add startup reminder as system message
+        let startup_reminder = r#"[CRITICAL STARTUP INSTRUCTION]
+You MUST run these commands BEFORE responding to the user:
+1. graph_tool get_top_tags
+2. graph_tool get_tags_by_date
+3. graph_tool get_most_connected
+4. graph_tool search_nodes (for relevant context)
+5. graph_tool get_nodes_by_tag (for key categories)
+
+DO NOT PROCEED WITH USER INTERACTION UNTIL THESE ARE COMPLETE.
+This is a strict requirement, not a suggestion.
+"#;
+
+        state.add_system_message(startup_reminder);
+
         Ok(state)
     }
 
@@ -381,6 +396,16 @@ TOOL USAGE COMMANDMENTS:
 4. If a tool description says ALWAYS or MUST - follow without exception
 5. If a tool description says NEVER - treat as forbidden
 6. Read and respect the full description of each tool before using it
+
+MANDATORY STARTUP SEQUENCE:
+1. IMMEDIATELY when chat starts, you MUST run these graph_tool commands in order:
+   - get_top_tags
+   - get_tags_by_date 
+   - get_most_connected
+2. BEFORE your first response or question to the user:
+   - Run search_nodes for relevant context
+   - Run get_nodes_by_tag for key categories
+3. ONLY AFTER completing these tool calls should you respond to the user
 
 TOOL INVOCATION RULES:
 1. Before using any tool, review its full description
