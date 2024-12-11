@@ -376,7 +376,44 @@ impl MCPHost {
             - GOOD: \"Since you're familiar with software development, you might find this interesting...\"\n\
             - BAD: \"According to my records, you mentioned having a dog named Max\"\n\
             - GOOD: \"How's Max doing? Still enjoying those long walks?\"\n\n\
-            AVAILABLE TOOLS AND THEIR REQUIRED USAGE PATTERNS:\n{}",
+            AVAILABLE TOOLS AND THEIR REQUIRED USAGE PATTERNS:\n{}\n\n\
+            TOOL CALLING SYNTAX:\n\
+            ALWAYS use this exact format to call tools:\n\
+            ```json\n\
+            {{\n\
+                \"action\": \"tool_name\",\n\
+                \"params\": {{\n\
+                    // required parameters\n\
+                }}\n\
+            }}\n\
+            ```\n\n\
+            Examples:\n\
+            ```json\n\
+            {{\n\
+                \"action\": \"get_top_tags\",\n\
+                \"params\": {{\n\
+                    \"limit\": 10\n\
+                }}\n\
+            }}\n\
+            ```\n\n\
+            ```json\n\
+            {{\n\
+                \"action\": \"create_node\",\n\
+                \"params\": {{\n\
+                    \"name\": \"Node Name\",\n\
+                    \"description\": \"Node Description\",\n\
+                    \"content\": \"Node Content\",\n\
+                    \"parent_name\": \"Parent Node\",\n\
+                    \"relation\": \"relates_to\",\n\
+                    \"tags\": [\"tag1\", \"tag2\"]\n\
+                }}\n\
+            }}\n\
+            ```\n\n\
+            CRITICAL:\n\
+            - ALWAYS use exact JSON format shown above\n\
+            - NEVER modify the JSON structure\n\
+            - ALWAYS include all required parameters\n\
+            - NEVER wait for permission to use tools",
             tool_info_list.iter().map(|tool| {
                 format!(
                     "Tool: {}\n\
