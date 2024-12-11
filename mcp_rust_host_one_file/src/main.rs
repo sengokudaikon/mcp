@@ -52,8 +52,12 @@ where
     
     let handle = tokio::spawn(async move {
         loop {
-            progress_term.write_line(&format!("\r{} {}", spinner[i], progress_msg))
+            // Write the spinner and message, staying on same line
+            progress_term.write_str(&format!("\r{} {}", spinner[i], progress_msg))
                 .unwrap_or_default();
+            // Ensure the line is flushed
+            progress_term.flush().unwrap_or_default();
+            
             i = (i + 1) % spinner.len();
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
@@ -61,6 +65,7 @@ where
 
     let result = future.await;
     handle.abort();
+    // Clear the progress line completely
     term.clear_line().unwrap_or_default();
     result
 }
