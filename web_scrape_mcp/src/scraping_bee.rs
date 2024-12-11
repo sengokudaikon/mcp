@@ -72,10 +72,10 @@ impl ScrapingBeeClient {
                 ("api_key", &self.api_key),
                 ("url", &request_body.url),
                 ("render_js", &request_body.render_js.to_string()),
-                ("premium_proxy", "true"),  // Use premium proxy for better success rate
-                ("stealth_proxy", "true"),  // Enable stealth mode to avoid detection
-                ("country_code", "us"),     // Route through US proxies
-                ("block_resources", "false") // Load all page resources
+                ("premium_proxy", &"true".to_string()),  // Use premium proxy for better success rate
+                ("stealth_proxy", &"true".to_string()),  // Enable stealth mode to avoid detection
+                ("country_code", &"us".to_string()),     // Route through US proxies
+                ("block_resources", &"false".to_string()) // Load all page resources
             ]);
 
         // Clone and build request for logging
