@@ -1,6 +1,9 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
+use serde_json::json;
+
+use shared_protocol_objects::ToolInfo;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BashParams {
@@ -25,7 +28,8 @@ impl BashExecutor {
     pub fn tool_info(&self) -> ToolInfo {
         ToolInfo {
             name: "bash".to_string(),
-            description: "Execute bash shell commands".to_string(),
+            description: Some("Execute bash shell commands".to_string()),
+            input_schema: json!({})
         }
     }
 
@@ -44,8 +48,21 @@ impl BashExecutor {
     }
 }
 
-#[derive(Debug)]
-pub struct ToolInfo {
-    pub name: String,
-    pub description: String,
+pub fn bash_tool_info() -> ToolInfo {
+    ToolInfo {
+        name: BashExecutor::new().tool_info().name,
+        description: BashExecutor::new().tool_info().description,
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string",
+                    "description": "The bash command to execute"
+                }
+            },
+            "required": ["command"],
+            "additionalProperties": false
+        }),
+    }
 }
+

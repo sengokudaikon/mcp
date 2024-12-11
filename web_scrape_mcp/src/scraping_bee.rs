@@ -2,6 +2,9 @@ use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
 use log::{info, warn, error, debug};
+use serde_json::json;
+
+use ::shared_protocol_objects::ToolInfo;
 
 #[derive(Debug)]
 pub enum ScrapingBeeResponse {
@@ -22,6 +25,29 @@ pub struct ScrapingBeeClient {
     url: Option<String>,
     render_js: bool,
 }
+
+pub fn scraping_tool_info() -> ToolInfo {
+    ToolInfo {
+        name: "scrape_url".into(),
+        description: Some(
+            "Extracts and analyzes text content from webpages. Handles JavaScript-rendered content \
+            and blocked pages using OCR. Use for reading articles, documentation, or any web content.".into()
+        ),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "url": { 
+                    "type": "string",
+                    "description": "The complete URL of the webpage to read and analyze",
+                    "format": "uri"
+                }
+            },
+            "required": ["url"],
+            "additionalProperties": false
+        }),
+    }
+}
+
 
 impl ScrapingBeeClient {
     pub fn new(api_key: String) -> Self {
@@ -66,7 +92,7 @@ impl ScrapingBeeClient {
 
         info!("Building ScrapingBee API request");
         let request = self.client
-            .post(&self.base_url)
+            .get(&self.base_url)
             .headers(headers)
             .query(&[
                 ("api_key", &self.api_key),

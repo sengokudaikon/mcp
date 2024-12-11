@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use anyhow::Result;
+use serde_json::json;
+
+use shared_protocol_objects::ToolInfo;
 
 #[derive(Debug, Deserialize)]
 pub struct SearchResponse {
@@ -75,6 +78,36 @@ pub struct BraveSearchClient {
     client: reqwest::Client,
     api_key: String,
     base_url: String,
+}
+
+pub fn search_tool_info() -> ToolInfo {
+    ToolInfo {
+        name: "brave_search".into(),
+        description: Some(
+            "Searches the internet for current information. Returns relevant URLs with titles and descriptions. \
+            Use for finding news, resources, documentation, or researching any topic. \
+            Follow up with scrape_url to read specific pages.".into()
+        ),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query - be specific and include relevant keywords",
+                    "minLength": 1
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of results to return (max 20). Use more results for broad research, fewer for specific queries.",
+                    "default": 10,
+                    "minimum": 1,
+                    "maximum": 20
+                }
+            },
+            "required": ["query"],
+            "additionalProperties": false
+        }),
+    }
 }
 
 impl BraveSearchClient {

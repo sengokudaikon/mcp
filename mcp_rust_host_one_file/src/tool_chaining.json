@@ -1,0 +1,223 @@
+[
+    {
+      "title": "Searching and then scraping",
+      "steps": [
+        "brave_search with {\"query\": \"OpenAI documentation\"}",
+        "scrape_url with {\"url\": \"<a URL from the search result>\"}"
+      ]
+    },
+    {
+      "title": "Graph and knowledge enrichment",
+      "steps": [
+        "graph_tool with {\"action\": \"get_top_tags\", \"params\": {\"limit\": 10}}",
+        "graph_tool with {\"action\": \"get_tags_by_date\", \"params\": {\"limit\": 10}}",
+        "graph_tool with {\"action\": \"get_most_connected\", \"params\": {\"limit\": 10}}",
+        "graph_tool with {\"action\": \"search_nodes\", \"params\": {\"query\": \"some keyword\"}}"
+      ]
+    },
+    {
+      "title": "Add and commit files with git",
+      "steps": [
+        "git with {\"action\":\"init_repo\"}",
+        "git with {\"action\":\"add_files\",\"files\":[\"src/main.rs\"]}",
+        "git with {\"action\":\"commit_changes\",\"message\":\"Initial commit\"}"
+      ]
+    },
+    {
+      "title": "Scrape and store content in the graph",
+      "steps": [
+        "scrape_url with {\"url\": \"https://example.com\"}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"Example\",\"description\":\"From scraped content\",\"content\":\"...\",\"parent_name\":\"root\",\"relation\":\"refers_to\"}}"
+      ]
+    },
+    {
+      "title": "Modify files then commit again",
+      "steps": [
+        "regex_replace with {\"file_path\":\"./README.md\",\"pattern\":\"old text\",\"replacement\":\"new text\"}",
+        "git with {\"action\":\"add_files\",\"files\":[\"README.md\"]}",
+        "git with {\"action\":\"commit_changes\",\"message\":\"Update README\"}"
+      ]
+    },
+    {
+      "title": "Enrich graph with user info and search it",
+      "steps": [
+        "graph_tool with {\"action\":\"create_root\",\"params\":{\"name\":\"User\",\"description\":\"Root user node\",\"content\":\"User info\"}}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"User Preferences\",\"description\":\"User likes cats\",\"content\":\"likes cats\",\"parent_name\":\"User\",\"relation\":\"has_detail\"}}",
+        "graph_tool with {\"action\":\"search_nodes\",\"params\":{\"query\":\"cats\"}}"
+      ]
+    },
+    {
+      "title": "Run bash command then update graph",
+      "steps": [
+        "bash with {\"command\":\"ls -la\"}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"SystemCheck\",\"description\":\"Output of ls\",\"content\":\"(paste output here)\",\"parent_name\":\"User\",\"relation\":\"observed\"}}"
+      ]
+    },
+    {
+      "title": "Get recent nodes and store search results",
+      "steps": [
+        "graph_tool with {\"action\":\"get_recent_nodes\",\"params\":{\"limit\":5}}",
+        "brave_search with {\"query\":\"latest AI news\"}",
+        "scrape_url with {\"url\":\"<news URL>\"}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"AI News\",\"description\":\"Latest AI news snippet\",\"content\":\"...\",\"parent_name\":\"User\",\"relation\":\"learned\"}}"
+      ]
+    },
+    {
+      "title": "Push changes to remote repository",
+      "steps": [
+        "git with {\"action\":\"get_status\"}",
+        "git with {\"action\":\"push_changes\",\"remote\":\"origin\",\"branch\":\"main\"}"
+      ]
+    },
+    {
+      "title": "Create nodes for multiple interests and connect them",
+      "steps": [
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"Hobby\",\"description\":\"User hobby\",\"content\":\"User likes hiking\",\"parent_name\":\"User\",\"relation\":\"has_hobby\"}}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"Work\",\"description\":\"User job\",\"content\":\"Software developer\",\"parent_name\":\"User\",\"relation\":\"has_profession\"}}",
+        "graph_tool with {\"action\":\"connect_nodes\",\"params\":{\"from_node_name\":\"Hobby\",\"to_node_name\":\"Work\",\"relation\":\"inspires\"}}"
+      ]
+    },
+    {
+      "title": "Search a concept and scrape its explanation",
+      "steps": [
+        "brave_search with {\"query\":\"Definition of entropy in information theory\"}",
+        "scrape_url with {\"url\":\"<a URL from the search result>\"}"
+      ]
+    },
+    {
+      "title": "Integrate scraped info into graph",
+      "steps": [
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"Entropy\",\"description\":\"Info theory concept\",\"content\":\"...\",\"parent_name\":\"User\",\"relation\":\"learned_about\"}}"
+      ]
+    },
+    {
+      "title": "Update existing node details",
+      "steps": [
+        "graph_tool with {\"action\":\"update_node\",\"params\":{\"node_name\":\"Hobby\",\"new_description\":\"Outdoor activities\",\"new_content\":\"User enjoys hiking in the mountains\"}}"
+      ]
+    },
+    {
+      "title": "Get top tags and connect related info",
+      "steps": [
+        "graph_tool with {\"action\":\"get_top_tags\",\"params\":{\"limit\":5}}",
+        "graph_tool with {\"action\":\"get_nodes_by_tag\",\"params\":{\"tag\":\"hobby\"}}"
+      ]
+    },
+    {
+      "title": "Perform regex replace in code file then commit",
+      "steps": [
+        "regex_replace with {\"file_path\":\"./src/main.rs\",\"pattern\":\"fn main()\",\"replacement\":\"fn start()\"}",
+        "git with {\"action\":\"add_files\",\"files\":[\"src/main.rs\"]}",
+        "git with {\"action\":\"commit_changes\",\"message\":\"Rename main to start\"}"
+      ]
+    },
+    {
+      "title": "Check git log and update a node",
+      "steps": [
+        "git with {\"action\":\"get_log\",\"max_count\":3}",
+        "graph_tool with {\"action\":\"update_node\",\"params\":{\"node_name\":\"Work\",\"new_content\":\"Software developer with experience in Rust\"}}"
+      ]
+    },
+    {
+      "title": "Undo last commit and record the action in graph",
+      "steps": [
+        "git with {\"action\":\"undo_last_commit\"}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"VersionControlEvent\",\"description\":\"Undo commit action\",\"content\":\"Last commit undone\",\"parent_name\":\"User\",\"relation\":\"performed_action\"}}"
+      ]
+    },
+    {
+      "title": "Search user interests and store them",
+      "steps": [
+        "graph_tool with {\"action\":\"search_nodes\",\"params\":{\"query\":\"hiking\"}}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"NewHobby\",\"description\":\"Related hobby\",\"content\":\"User also likes cycling\",\"parent_name\":\"User\",\"relation\":\"has_hobby\"}}"
+      ]
+    },
+    {
+      "title": "Get tags by date and relate them",
+      "steps": [
+        "graph_tool with {\"action\":\"get_tags_by_date\",\"params\":{\"limit\":5}}",
+        "graph_tool with {\"action\":\"connect_nodes\",\"params\":{\"from_node_name\":\"NewHobby\",\"to_node_name\":\"Hobby\",\"relation\":\"complements\"}}"
+      ]
+    },
+    {
+      "title": "Scrape a tutorial and store results",
+      "steps": [
+        "brave_search with {\"query\":\"Rust async tutorial\"}",
+        "scrape_url with {\"url\":\"<tutorial URL>\"}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"RustAsyncTutorial\",\"description\":\"Tutorial content\",\"content\":\"...\",\"parent_name\":\"Work\",\"relation\":\"improves_skill\"}}"
+      ]
+    },
+    {
+      "title": "Update content after scraping",
+      "steps": [
+        "regex_replace with {\"file_path\":\"./NOTES.txt\",\"pattern\":\"OldContent\",\"replacement\":\"NewContent\"}",
+        "graph_tool with {\"action\":\"update_node\",\"params\":{\"node_name\":\"Entropy\",\"new_content\":\"Expanded knowledge on entropy\"}}"
+      ]
+    },
+    {
+      "title": "Search something else and store results again",
+      "steps": [
+        "brave_search with {\"query\":\"Latest programming languages\"}",
+        "scrape_url with {\"url\":\"<found URL>\"}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"ProgrammingLangs\",\"description\":\"Info on languages\",\"content\":\"...\",\"parent_name\":\"User\",\"relation\":\"interested_in\"}}"
+      ]
+    },
+    {
+      "title": "Chain multiple scrapes",
+      "steps": [
+        "brave_search with {\"query\":\"Quantum computing basics\"}",
+        "scrape_url with {\"url\":\"<found URL>\"}",
+        "scrape_url with {\"url\":\"<another related URL>\"}"
+      ]
+    },
+    {
+      "title": "Store multiple scrapes in graph",
+      "steps": [
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"QuantumComputing\",\"description\":\"Basics\",\"content\":\"...\",\"parent_name\":\"User\",\"relation\":\"learning\"}}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"QuantumResources\",\"description\":\"Additional info\",\"content\":\"...\",\"parent_name\":\"QuantumComputing\",\"relation\":\"references\"}}"
+      ]
+    },
+    {
+      "title": "Add and commit large file changes",
+      "steps": [
+        "bash with {\"command\":\"touch LARGE_FILE.txt\"}",
+        "git with {\"action\":\"add_files\",\"files\":[\"LARGE_FILE.txt\"]}",
+        "git with {\"action\":\"commit_changes\",\"message\":\"Add large file\"}"
+      ]
+    },
+    {
+      "title": "Move a node under another in graph",
+      "steps": [
+        "graph_tool with {\"action\":\"move_node\",\"params\":{\"node_name\":\"QuantumResources\",\"new_parent_name\":\"Work\",\"new_relation\":\"research_related\"}}"
+      ]
+    },
+    {
+      "title": "Search graph and enrich nodes",
+      "steps": [
+        "graph_tool with {\"action\":\"search_nodes\",\"params\":{\"query\":\"rust\"}}",
+        "graph_tool with {\"action\":\"update_node\",\"params\":{\"node_name\":\"RustAsyncTutorial\",\"new_description\":\"Comprehensive guide\"}}"
+      ]
+    },
+    {
+      "title": "Run a bash script and record outcome",
+      "steps": [
+        "bash with {\"command\":\"echo Hello World > message.txt\"}",
+        "graph_tool with {\"action\":\"create_node\",\"params\":{\"name\":\"SystemMessage\",\"description\":\"Result of echo\",\"content\":\"Hello World\",\"parent_name\":\"User\",\"relation\":\"observed\"}}"
+      ]
+    },
+    {
+      "title": "Get recent nodes again and link to current interests",
+      "steps": [
+        "graph_tool with {\"action\":\"get_recent_nodes\",\"params\":{\"limit\":5}}",
+        "graph_tool with {\"action\":\"connect_nodes\",\"params\":{\"from_node_name\":\"ProgrammingLangs\",\"to_node_name\":\"RustAsyncTutorial\",\"relation\":\"studying\"}}"
+      ]
+    },
+    {
+      "title": "Perform another regex replacement and commit",
+      "steps": [
+        "regex_replace with {\"file_path\":\"./DOCS.md\",\"pattern\":\"Placeholder\",\"replacement\":\"Real Content\"}",
+        "git with {\"action\":\"add_files\",\"files\":[\"DOCS.md\"]}",
+        "git with {\"action\":\"commit_changes\",\"message\":\"Update docs\"}"
+      ]
+    }
+  ]

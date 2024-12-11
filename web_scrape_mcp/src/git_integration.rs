@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use shared_protocol_objects::{CallToolParams, CallToolResult, ToolResponseContent, JsonRpcResponse, success_response, error_response, INTERNAL_ERROR};
+use shared_protocol_objects::{CallToolParams, CallToolResult, ToolInfo, ToolResponseContent, JsonRpcResponse, success_response, error_response, INTERNAL_ERROR};
 
 #[derive(Debug, Deserialize)]
 struct GitParams {
@@ -320,7 +320,3 @@ pub fn git_tool_info() -> shared_protocol_objects::ToolInfo {
         })
     }
 }
-
-/// In your main server code:
-/// 1. Add `git_tool_info()` to your tools list.
-/// 2. In your `tools/call` handler, if `name == "git"`, call `handle_git_tool_call(params, id).await`.

@@ -20,3 +20,4 @@ futures = "0.3.31"
 env_logger = "0.11.5"
 reqwest = { version = "0.12.9", features = ["json", "multipart", "stream"] } 
 log = "0.4.22"
+console.workspace = true

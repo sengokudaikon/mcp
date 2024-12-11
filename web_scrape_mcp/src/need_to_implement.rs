@@ -9,7 +9,7 @@ use petgraph::visit::EdgeRef;
 use serde_json::{json, Value};
 use anyhow::{Result, anyhow};
 use shared_protocol_objects::{
-    JsonRpcResponse,
+    JsonRpcResponse, ToolInfo,
     CallToolParams, CallToolResult,
     ToolResponseContent,
     success_response, error_response, INVALID_PARAMS, INTERNAL_ERROR
@@ -574,18 +574,12 @@ struct GetRecentNodesParams {
     limit: Option<usize>
 }
 
-// Define a struct to hold the tool information
-struct GraphToolInfo {
-    name: String,
-    description: String,
-    input_schema: Value,
-}
 
 // Create a function to build the tool information
-fn graph_tool_info() -> GraphToolInfo {
-    GraphToolInfo {
+pub fn graph_tool_info() -> ToolInfo {
+    ToolInfo {
         name: "graph_tool".to_string(),
-        description: "A tool for managing and interacting with a knowledge graph.".to_string(),
+        description: Some("A tool for managing and interacting with a knowledge graph.".to_string()),
         input_schema: json!({
             "type": "object",
             "properties": {

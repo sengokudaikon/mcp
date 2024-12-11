@@ -158,7 +158,7 @@ impl OpenAIClient {
         debug!("Creating CompletionBuilder with generic type T");
         CompletionBuilder {
             client: self,
-            model: "gpt-4o".to_string(),
+            model: "chatgpt-4o-latest".to_string(),
             messages: Vec::new(),
             temperature: None,
             max_tokens: None,
@@ -171,7 +171,7 @@ impl OpenAIClient {
         debug!("Creating RawCompletionBuilder");
         RawCompletionBuilder {
             client: self,
-            model: "gpt-4o".into(),
+            model: "chatgpt-4o-latest".into(),
             messages: Vec::new(),
             temperature: None,
             max_tokens: None,
@@ -870,7 +870,7 @@ impl<'a> Processor<'a> {
             debug!("Sending chunk {} for analysis", piece_path);
             let raw_response = self.client
                 .raw_builder()
-                .model("gpt-4o")
+                .model("chatgpt-4o-latest")
                 .system("You are an expert at extracting text and code from images.")
                 .user_with_image(
                     "Extract all visible code (in Markdown code blocks if possible) and all visible text:",
