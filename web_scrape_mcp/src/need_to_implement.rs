@@ -752,19 +752,32 @@ pub async fn handle_graph_tool_call(
         }
         "create_node" => {
             let create_params: CreateNodeParams = serde_json::from_value(action_params.clone())?;
-            if let Some(parent_name) = create_params.parent_name {
-                if let Some((parent_idx, _)) = graph_manager.get_node_by_name(&parent_name) {
-                    let mut node = DataNode::new(create_params.name, create_params.description, create_params.content);
-                    
-                    // Set optional fields
-                    if let Some(tags) = create_params.tags {
-                        node.tags = tags;
-                    }
-                    if let Some(metadata) = create_params.metadata {
-                        node.metadata = metadata;
-                    }
+            // For non-root nodes, both parent_name and relation are required
+            if graph_manager.root.is_none() {
+                return Ok(error_response(id.clone(), INVALID_PARAMS, 
+                    "No root node exists. Please create a root node first using the create_root action"));
+            }
 
-                    let relation = create_params.relation.ok_or_else(|| anyhow!("Missing relation for creating connected node"))?;
+            match (create_params.parent_name, create_params.relation) {
+                (None, _) => {
+                    return Ok(error_response(id.clone(), INVALID_PARAMS,
+                        "parent_name is required for creating a non-root node. Use create_root action to create the root node."));
+                }
+                (Some(_), None) => {
+                    return Ok(error_response(id.clone(), INVALID_PARAMS,
+                        "relation is required when creating a node. It describes how this node relates to its parent."));
+                }
+                (Some(parent_name), Some(relation)) => {
+                    if let Some((parent_idx, _)) = graph_manager.get_node_by_name(&parent_name) {
+                        let mut node = DataNode::new(create_params.name, create_params.description, create_params.content);
+                        
+                        // Set optional fields
+                        if let Some(tags) = create_params.tags {
+                            node.tags = tags;
+                        }
+                        if let Some(metadata) = create_params.metadata {
+                            node.metadata = metadata;
+                        }
                     match graph_manager.create_connected_node(node, parent_idx, relation).await {
                         Ok(idx) => {
                             let result = json!({
