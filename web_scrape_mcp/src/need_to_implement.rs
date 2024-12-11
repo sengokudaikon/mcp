@@ -778,31 +778,36 @@ pub async fn handle_graph_tool_call(
                         if let Some(metadata) = create_params.metadata {
                             node.metadata = metadata;
                         }
-                    match graph_manager.create_connected_node(node, parent_idx, relation).await {
-                        Ok(idx) => {
-                            let result = json!({
-                                "message": "Node created successfully",
-                                "node_index": idx.index(),
-                                "timestamp": chrono::Utc::now()
-                            });
-                            Ok(success_response(id.clone(), json!(CallToolResult {
-                                content: vec![ToolResponseContent {
-                                    type_: "text".into(),
-                                    text: result.to_string(),
-                                    annotations: None,
-                                }],
-                                is_error: Some(false),
-                                _meta: None,
-                                progress: None,
-                                total: None
-                            })))
+                        if let Some(quotes) = create_params.quotes {
+                            node.quotes = quotes;
                         }
-                        Err(e) => {
-                            Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
+                        
+                        match graph_manager.create_connected_node(node, parent_idx, relation).await {
+                            Ok(idx) => {
+                                let result = json!({
+                                    "message": "Node created successfully",
+                                    "node_index": idx.index(),
+                                    "timestamp": chrono::Utc::now()
+                                });
+                                Ok(success_response(id.clone(), json!(CallToolResult {
+                                    content: vec![ToolResponseContent {
+                                        type_: "text".into(),
+                                        text: result.to_string(),
+                                        annotations: None,
+                                    }],
+                                    is_error: Some(false),
+                                    _meta: None,
+                                    progress: None,
+                                    total: None
+                                })))
+                            }
+                            Err(e) => {
+                                Ok(error_response(id.clone(), INTERNAL_ERROR, &e.to_string()))
+                            }
                         }
+                    } else {
+                        Ok(error_response(id.clone(), INVALID_PARAMS, "Parent node not found"))
                     }
-                } else {
-                    Ok(error_response(id.clone(), INVALID_PARAMS, "Parent node not found"))
                 }
             }
         }
