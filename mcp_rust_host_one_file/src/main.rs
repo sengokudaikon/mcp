@@ -757,7 +757,7 @@ REMEMBER: Just output the tool invocation format exactly as shown above. The sys
                 }
             }
             
-            info!("Sending request to OpenAI with timeout");
+            debug!("Sending request to OpenAI with timeout");
             match with_progress("Waiting for AI response...".to_string(), 
                 tokio::time::timeout(std::time::Duration::from_secs(30), builder.execute())
             ).await {
@@ -825,7 +825,7 @@ REMEMBER: Just output the tool invocation format exactly as shown above. The sys
                             println!("\n{}", style("Entering chat mode. Type 'exit' or 'quit' to leave.").cyan().bold());
 
                             loop {
-                                println!("\n{}", style("\nUser:\n").cyan().bold());
+                                println!("\n{}", style("User:").cyan().bold());
                                 let mut input = String::new();
                                 std::io::stdin().read_line(&mut input)?;
                                 let user_input = input.trim();
