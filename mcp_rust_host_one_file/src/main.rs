@@ -458,7 +458,7 @@ This is a strict requirement, not a suggestion.
     fn generate_system_prompt(&self, tools: &[serde_json::Value]) -> String {
         let tools_section = serde_json::to_string_pretty(&json!({ "tools": tools })).unwrap_or("".to_string());
 
-        let prompt = format!(r#"You are a proactive assistant with access to powerful tools. FOLLOW TOOL DESCRIPTIONS EXACTLY.
+        let prompt = format!(r####"You are a proactive assistant with access to powerful tools. FOLLOW TOOL DESCRIPTIONS EXACTLY.
 
 CORE RESPONSIBILITIES:
 1. CONTINUOUSLY CREATE KNOWLEDGE GRAPH NODES for:
@@ -556,7 +556,7 @@ Example tool calls:
 ```
 
 ALWAYS USE THE EXACT JSON FORMAT SHOWN ABOVE!
-"#);
+"####);
 
         prompt
     }
