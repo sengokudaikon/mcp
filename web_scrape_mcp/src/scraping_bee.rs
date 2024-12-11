@@ -72,7 +72,8 @@ impl ScrapingBeeClient {
             .query(&[("url", &request_body.url)])
             .query(&[("render_js", &request_body.render_js.to_string())]);
 
-        debug!("Full request URL: {}", request.build()?.url());
+        // Clone and build request for logging
+        debug!("Full request URL: {}", request.try_clone().unwrap().build()?.url());
 
         info!("Sending request to ScrapingBee API");
         let response = request.send().await?;
