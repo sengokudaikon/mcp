@@ -439,9 +439,12 @@ impl MCPHost {
     }
 
     pub async fn load_config(&self, config_path: &str) -> Result<()> {
+        info!("Loading configuration from: {}", config_path);
         let config_str = fs::read_to_string(config_path)?;
+        info!("Parsing configuration JSON");
         let config: Config = serde_json::from_str(&config_str)?;
         
+        info!("Found {} servers in config", config.servers.len());
         for (name, server_config) in config.servers {
             // Start each configured server
             let mut command = Command::new(&server_config.command);
@@ -458,10 +461,12 @@ impl MCPHost {
     }
 
     async fn start_server_with_command(&self, name: &str, mut command: Command) -> Result<()> {
+        info!("Starting server '{}' with command: {:?}", name, command);
         command.stdin(Stdio::piped())
                .stdout(Stdio::piped())
                .stderr(Stdio::piped());
 
+        info!("Spawning server process");
         let mut child = command.spawn()?;
         let child_stdin = child.stdin.take().expect("Failed to get stdin");
         let stdin = Arc::new(Mutex::new(ChildStdin::from_std(child_stdin)?));
@@ -495,6 +500,7 @@ impl MCPHost {
     }
 
     async fn initialize_server(&self, name: &str) -> Result<()> {
+        info!("Initializing server '{}'", name);
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: RequestId::String(Uuid::new_v4().to_string()).into(),
