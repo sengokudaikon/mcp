@@ -439,7 +439,7 @@ impl MCPHost {
     }
 
     pub async fn load_config(&self, config_path: &str) -> Result<()> {
-        let config_str = fs::read_to_string(config_path)?;
+        let config_str = fs::read_to_string(config_path.replace(r#"\ "#, " "))?;
         let config: Config = serde_json::from_str(&config_str)?;
         
         for (name, server_config) in config.servers {
