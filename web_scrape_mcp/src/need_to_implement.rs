@@ -804,8 +804,6 @@ pub async fn handle_graph_tool_call(
                 } else {
                     Ok(error_response(id.clone(), INVALID_PARAMS, "Parent node not found"))
                 }
-            } else {
-                Ok(error_response(id.clone(), INVALID_PARAMS, "Parent name is required to create a connected node"))
             }
         }
         "update_node" => {
