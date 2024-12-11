@@ -883,8 +883,7 @@ pub async fn handle_graph_tool_call(
                 Err(e) => return_error!(format!("Invalid delete_node parameters: {}", e))
             };
 
-            // First get the node name before attempting deletion
-            let node_name = match graph_manager.get_node_by_name(&delete_params.node_name) {
+            match graph_manager.get_node_by_name(&delete_params.node_name) {
                 Some((idx, node)) => {
                     // Store the name before the mutable borrow
                     let name = node.name.clone();
@@ -907,15 +906,13 @@ pub async fn handle_graph_tool_call(
                                 progress: None,
                                 total: None,
                             };
-                            Ok(success_response(id, serde_json::to_value(tool_res)?))
+                            Ok::<JsonRpcResponse, anyhow::Error>(success_response(id, serde_json::to_value(tool_res)?))
                         }
                         Err(e) => return_error!(format!("Failed to delete node '{}': {}", name, e))
                     }
                 }
                 None => return_error!(format!("Node '{}' not found", delete_params.node_name))
-            }?;
-
-            Ok(node_name)
+            }
         }
         "connect_nodes" => {
             let connect_params: ConnectNodesParams = match serde_json::from_value(action_params.clone()) {
