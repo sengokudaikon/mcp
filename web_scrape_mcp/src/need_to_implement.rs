@@ -592,7 +592,7 @@ fn graph_tool_info() -> GraphToolInfo {
                 "action": {
                     "type": "string",
                     "description": "The action to perform.",
-                    "enum": ["create_root", "create_node", "update_node", "delete_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected", "get_top_tags"]
+                    "enum": ["create_root", "create_node", "update_node", "delete_node", "move_node", "connect_nodes", "get_node", "get_children", "get_nodes_by_tag", "search_nodes", "get_most_connected", "get_top_tags", "get_recent_nodes", "get_tags_by_date"]
                 },
                 "params": {
                     "type": "object",

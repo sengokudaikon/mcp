@@ -311,6 +311,40 @@ async fn main() {
                                             "maximum": 200
                                         }
                                     }
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "GetTagsByDateParams",
+                                    "properties": {
+                                        "limit": { 
+                                            "type": "integer",
+                                            "description": "Maximum number of tags to return (default: 30)",
+                                            "minimum": 1,
+                                            "maximum": 200
+                                        }
+                                    }
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "GetRecentNodesParams", 
+                                    "properties": {
+                                        "limit": {
+                                            "type": "integer",
+                                            "description": "Maximum number of nodes to return (default: 10)",
+                                            "minimum": 1,
+                                            "maximum": 100
+                                        }
+                                    }
+                                },
+                                {
+                                    "type": "object",
+                                    "title": "MoveNodeParams",
+                                    "properties": {
+                                        "node_name": { "type": "string", "description": "Name of the node to move" },
+                                        "new_parent_name": { "type": "string", "description": "Name of the new parent node" },
+                                        "new_relation": { "type": "string", "description": "New relationship type to the parent" }
+                                    },
+                                    "required": ["node_name", "new_parent_name", "new_relation"]
                                 }
                             ]
                         }
