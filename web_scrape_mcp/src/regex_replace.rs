@@ -7,10 +7,10 @@ use regex::Regex;
 use shared_protocol_objects::{CallToolParams, CallToolResult, ToolResponseContent, JsonRpcResponse, success_response, error_response, INTERNAL_ERROR};
 
 #[derive(Debug, Deserialize)]
-struct RegexReplaceParams {
-    file_path: String,
-    pattern: String,
-    replacement: String,
+pub struct RegexReplaceParams {
+    pub file_path: String,
+    pub pattern: String,
+    pub replacement: String,
 }
 
 pub async fn handle_regex_replace_tool_call(params: CallToolParams, id: Option<Value>) -> Result<JsonRpcResponse> {
