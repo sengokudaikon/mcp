@@ -702,9 +702,9 @@ impl MCPHost {
                 if i % 2 == 1 { // Only look at content between ``` marks
                     if let Some((tool_name, args)) = parse_tool_call(chunk) {
                         found_tool_call = true;
-                        info!("Found tool call in chunk {}:", i);
-                        info!("Tool: {}", tool_name);
-                        info!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
+                        debug!("Found tool call in chunk {}:", i);
+                        debug!("Tool: {}", tool_name);
+                        debug!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
                         
                         // Execute the tool call
                         println!("{}", style("\nTool Call:").green().bold());
