@@ -23,7 +23,7 @@ impl ToolChainLibrary {
     fn get_examples(&self, limit: Option<usize>) -> String {
         let chains = match limit {
             Some(n) => self.0.iter().take(n),
-            None => self.0.iter()
+            None => self.0.iter().take(self.0.len()) // Use take() with full length for None case
         };
 
         chains.map(|chain| {
