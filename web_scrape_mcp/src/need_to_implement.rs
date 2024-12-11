@@ -1063,24 +1063,24 @@ pub async fn handle_graph_tool_call(
             let top_tags_params: GetTopTagsParams = serde_json::from_value(action_params.clone())?;
             let limit = top_tags_params.limit.unwrap_or(10);
             let tags = graph_manager.get_top_tags(limit);
-            let tags_info: Vec<_> = tags.into_iter().map(|(tag, count)| {
-                json!({
-                    "tag": tag,
-                    "count": count,
-                    "timestamp": chrono::Utc::now()
-                })
-            }).collect();
-            Ok(success_response(id.clone(), json!(CallToolResult {
+            let tags_info = tags.into_iter()
+                .map(|(tag, count)| format!("Tag: {} (used {} times)", tag, count))
+                .collect::<Vec<_>>()
+                .join("\n");
+            
+            let result = CallToolResult {
                 content: vec![ToolResponseContent {
                     type_: "text".into(),
-                    text: json!(tags_info).to_string(),
+                    text: tags_info,
                     annotations: None,
                 }],
-                is_error: Some(false),
+                is_error: None,
                 _meta: None,
                 progress: None,
-                total: None
-            })))
+                total: None,
+            };
+            
+            Ok(success_response(id.clone(), serde_json::to_value(result)?))
         }
         "get_tags_by_date" => {
             let params: GetTagsByDateParams = serde_json::from_value(action_params.clone())?;
