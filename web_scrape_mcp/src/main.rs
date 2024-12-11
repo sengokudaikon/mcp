@@ -1,6 +1,6 @@
 mod need_to_implement;
 mod git_integration;
-use need_to_implement::{GraphManager, handle_graph_tool_call};
+use need_to_implement::{GraphManager, handle_graph_tool_call, graph_tool_info};
 use git_integration::{handle_git_tool_call, git_tool_info};
 use shared_protocol_objects::{
     ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
