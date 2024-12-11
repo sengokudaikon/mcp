@@ -41,7 +41,7 @@ impl ToolChainLibrary {
         .join("\n---\n\n")
     }
 }
-use log::info;
+use log::{info,warn};
 use tokio::time::Duration;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -404,7 +404,8 @@ impl MCPHost {
                         .join("\n"),
                     serde_json::to_string_pretty(&tool.input_schema).unwrap_or_default()
                 )
-            }).collect::<Vec<_>>().join("\n\n")
+            }).collect::<Vec<_>>().join("\n\n"),
+            tool_chains.get_examples(Some(3))
         );
         
         // Add the hidden instruction as a user message instead of a system message
@@ -512,10 +513,10 @@ impl MCPHost {
             \n\
             DO NOT PROCEED WITH USER INTERACTION UNTIL THESE ARE COMPLETE.\n\
             This is a strict requirement, not a suggestion.",
-            tool_chains.get_examples(Some(2)) // Show 2 relevant examples
+            tool_chains.get_examples(Some(15)) // Show 15 relevant examples
         );
 
-        state.add_system_message(startup_reminder);
+        state.add_system_message(&startup_reminder);
 
         Ok(state)
     }
