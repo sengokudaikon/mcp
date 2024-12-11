@@ -883,32 +883,39 @@ pub async fn handle_graph_tool_call(
                 Err(e) => return_error!(format!("Invalid delete_node parameters: {}", e))
             };
 
-            if let Some((idx, node)) = graph_manager.get_node_by_name(&delete_params.node_name) {
-                match graph_manager.delete_node(idx).await {
-                    Ok(_) => {
-                        let result = json!({
-                            "message": "Node deleted successfully",
-                            "deleted_node": node.name,
-                            "timestamp": chrono::Utc::now()
-                        });
-                        let tool_res = CallToolResult {
-                            content: vec![ToolResponseContent {
-                                type_: "text".into(),
-                                text: result.to_string(),
-                                annotations: None,
-                            }],
-                            is_error: Some(false),
-                            _meta: None,
-                            progress: None,
-                            total: None,
-                        };
-                        Ok(success_response(id, serde_json::to_value(tool_res)?))
+            // First get the node name before attempting deletion
+            let node_name = match graph_manager.get_node_by_name(&delete_params.node_name) {
+                Some((idx, node)) => {
+                    // Store the name before the mutable borrow
+                    let name = node.name.clone();
+                    // Now perform the deletion
+                    match graph_manager.delete_node(idx).await {
+                        Ok(_) => {
+                            let result = json!({
+                                "message": "Node deleted successfully",
+                                "deleted_node": name,
+                                "timestamp": chrono::Utc::now()
+                            });
+                            let tool_res = CallToolResult {
+                                content: vec![ToolResponseContent {
+                                    type_: "text".into(),
+                                    text: result.to_string(),
+                                    annotations: None,
+                                }],
+                                is_error: Some(false),
+                                _meta: None,
+                                progress: None,
+                                total: None,
+                            };
+                            Ok(success_response(id, serde_json::to_value(tool_res)?))
+                        }
+                        Err(e) => return_error!(format!("Failed to delete node '{}': {}", name, e))
                     }
-                    Err(e) => return_error!(format!("Failed to delete node '{}': {}", delete_params.node_name, e))
                 }
-            } else {
-                return_error!(format!("Node '{}' not found", delete_params.node_name))
-            }
+                None => return_error!(format!("Node '{}' not found", delete_params.node_name))
+            }?;
+
+            Ok(node_name)
         }
         "connect_nodes" => {
             let connect_params: ConnectNodesParams = match serde_json::from_value(action_params.clone()) {
