@@ -4,7 +4,7 @@ use serde::{Serialize, Deserialize};
 
 pub const DEFAULT_GRAPH_DIR: &str = "/tmp/knowledge_graphs";
 use petgraph::{Graph, adj::IndexType};
-use petgraph::graph::{NodeIndex, IndexType as GraphIndexType};
+use petgraph::graph::NodeIndex;
 use petgraph::visit::EdgeRef;
 use serde_json::{json, Value};
 use anyhow::{Result, anyhow};
@@ -130,11 +130,11 @@ impl GraphManager {
                         String::new()
                     ));
                 }
-                graph[idx] = node;
+                graph[NodeIndex::new(idx)] = node;
             }
             // Restore edges
             for (from, to, weight) in serializable.edges {
-                graph.add_edge(from, to, weight);
+                graph.add_edge(NodeIndex::new(from), NodeIndex::new(to), weight);
             }
             graph
         } else {
