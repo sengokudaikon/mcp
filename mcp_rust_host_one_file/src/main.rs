@@ -399,7 +399,7 @@ impl MCPHost {
                 match tokio::time::timeout(
                     std::time::Duration::from_secs(10),
                     client.raw_builder()
-                        .model("gpt-4o-mini")
+                        .model("gpt-4o")
                         .system("Test message")
                         .user("Echo test")
                         .execute()
@@ -761,7 +761,7 @@ impl MCPHost {
             }
             
             // Get next action from assistant with all accumulated context
-            let mut builder = client.raw_builder().model("gpt-4o-mini");
+            let mut builder = client.raw_builder().model("gpt-4o");
             for msg in &state.messages {
                 match msg.role {
                     Role::System => builder = builder.system(&msg.content),
@@ -838,6 +838,7 @@ impl MCPHost {
                             println!("\n{}", style("Entering chat mode. Type 'exit' or 'quit' to leave.").cyan().bold());
 
                             loop {
+                                println!("\n{}", style("\nUser:\n").cyan().bold());
                                 let mut input = String::new();
                                 std::io::stdin().read_line(&mut input)?;
                                 let user_input = input.trim();
@@ -850,7 +851,7 @@ impl MCPHost {
 
                                 // Use OpenAI client if available
                                 if let Some(client) = &self.openai_client {
-                                    let mut builder = client.raw_builder().model("gpt-4o-mini");
+                                    let mut builder = client.raw_builder().model("gpt-4o");
                                 
                                     // Add all messages from conversation state
                                     for msg in &state.messages {
