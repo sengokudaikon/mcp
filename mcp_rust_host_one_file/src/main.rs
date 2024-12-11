@@ -440,7 +440,31 @@ impl MCPHost {
 
     pub async fn load_config(&self, config_path: &str) -> Result<()> {
         info!("Loading configuration from: {}", config_path);
-        let config_str = fs::read_to_string(config_path)?;
+        
+        // Ensure config directory exists
+        if let Some(parent) = std::path::Path::new(config_path).parent() {
+            info!("Creating config directory if it doesn't exist: {}", parent.display());
+            fs::create_dir_all(parent)?;
+        }
+
+        // Try to read existing config or create default
+        let config_str = match fs::read_to_string(config_path) {
+            Ok(content) => {
+                info!("Found existing config file");
+                content
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                info!("Config file not found, creating default");
+                let default_config = Config {
+                    servers: HashMap::new(),
+                };
+                let default_str = serde_json::to_string_pretty(&default_config)?;
+                fs::write(config_path, &default_str)?;
+                default_str
+            }
+            Err(e) => return Err(e.into()),
+        };
+
         info!("Parsing configuration JSON");
         let config: Config = serde_json::from_str(&config_str)?;
         
