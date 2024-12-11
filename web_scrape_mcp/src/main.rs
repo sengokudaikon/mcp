@@ -1,6 +1,8 @@
 mod need_to_implement;
 mod git_integration;
+mod regex_replace;
 use need_to_implement::{GraphManager, handle_graph_tool_call, graph_tool_info};
+use regex_replace::{handle_regex_replace_tool_call, regex_replace_tool_info};
 use git_integration::{handle_git_tool_call, git_tool_info};
 use shared_protocol_objects::{
     ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
@@ -71,7 +73,8 @@ async fn main() {
             bash_tool_info(),
             scraping_tool_info(),
             search_tool_info(),
-            graph_tool_info()
+            graph_tool_info(),
+            regex_replace_tool_info()
         ],
         client_capabilities: None,
         client_info: None
@@ -483,6 +486,11 @@ async fn handle_request(
                         // Initialize with just the filename - path will be determined from env var
                         let mut graph_manager = GraphManager::new("knowledge_graph.json".to_string());
                         match handle_graph_tool_call(params, &mut graph_manager, id.clone()).await {
+                            Ok(resp) => Some(resp),
+                            Err(e) => Some(error_response(id, INTERNAL_ERROR, &e.to_string()))
+                        }
+                    } else if t.name == "regex_replace" {
+                        match handle_regex_replace_tool_call(params, id.clone()).await {
                             Ok(resp) => Some(resp),
                             Err(e) => Some(error_response(id, INTERNAL_ERROR, &e.to_string()))
                         }
