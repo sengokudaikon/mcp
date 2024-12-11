@@ -1,4 +1,3 @@
-mod processor;
 mod need_to_implement;
 use need_to_implement::{GraphManager, handle_graph_tool_call};
 use shared_protocol_objects::{
@@ -13,7 +12,6 @@ use shared_protocol_objects::{
     PARSE_ERROR, INVALID_PARAMS, INTERNAL_ERROR, error_response, success_response
 };
 
-use processor::{OpenAIClient, Processor};
 mod process_html;
 use process_html::extract_text_from_html;
 
@@ -590,101 +588,14 @@ async fn handle_request(
                                 Some(success_response(id, json!(tool_res)))
                             }
                             Ok(ScrapingBeeResponse::Binary(bytes)) => {
-                                // Save screenshot to temporary file
-                                let temp_filename =
-                                    format!("temp_screenshot_{}.png", uuid::Uuid::new_v4());
-                                if let Err(e) = std::fs::write(&temp_filename, &bytes) {
+                                // Save screenshot 
                                     return Some(error_response(
                                         id,
                                         -32603,
-                                        &format!("Failed to write temp file: {}", e),
+                                        &format!("Can't read binary scrapes"),
                                     ));
-                                }
+                                
 
-                                // Initialize OpenAI client and processor
-                                let openai_api_key = match std::env::var("OPENAI_API_KEY") {
-                                    Ok(key) => key,
-                                    Err(_) => {
-                                        return Some(error_response(
-                                            id,
-                                            -32603,
-                                            "OPENAI_API_KEY not set",
-                                        ))
-                                    }
-                                };
-                                let openai_client = OpenAIClient::new(openai_api_key);
-                                let processor =
-                                    Processor::new(&openai_client, "metadata.json", "output");
-
-                                // Process the screenshot
-                                match processor.process_image(&temp_filename).await {
-                                    Ok(()) => {
-                                        // Read the processed output
-                                        let metadata =
-                                            match processor::Metadata::load("metadata.json") {
-                                                Ok(m) => m,
-                                                Err(e) => {
-                                                    return Some(error_response(
-                                                        id,
-                                                        -32603,
-                                                        &format!("Failed to load metadata: {}", e),
-                                                    ))
-                                                }
-                                            };
-                                        if let Some(img_meta) = metadata.images.last() {
-                                            if let Some(output_file) = &img_meta.output_file {
-                                                let processed_text =
-                                                    match std::fs::read_to_string(output_file) {
-                                                        Ok(text) => text,
-                                                        Err(e) => {
-                                                            return Some(error_response(
-                                                                id,
-                                                                -32603,
-                                                                &format!(
-                                                                "Failed to read output file: {}",
-                                                                e
-                                                            ),
-                                                            ))
-                                                        }
-                                                    };
-                                                let tool_res = CallToolResult {
-                                                    content: vec![ToolResponseContent {
-                                                        type_: "text".into(),
-                                                        text: processed_text,
-                                                        annotations: None,
-                                                    }],
-                                                    is_error: None,
-                                                    _meta: None,
-                                                    progress: None,
-                                                    total: None,
-                                                };
-                                                // Clean up temp file
-                                                let _ = std::fs::remove_file(&temp_filename);
-                                                Some(success_response(id, json!(tool_res)))
-                                            } else {
-                                                Some(error_response(
-                                                    id,
-                                                    -32603,
-                                                    "No output file generated",
-                                                ))
-                                            }
-                                        } else {
-                                            Some(error_response(
-                                                id,
-                                                -32603,
-                                                "No metadata entry found",
-                                            ))
-                                        }
-                                    }
-                                    Err(e) => {
-                                        let _ = std::fs::remove_file(&temp_filename);
-                                        Some(error_response(
-                                            id,
-                                            -32603,
-                                            &format!("Failed to process image: {}", e),
-                                        ))
-                                    }
-                                }
                             }
                             Err(e) => {
                                 let tool_res = CallToolResult {
