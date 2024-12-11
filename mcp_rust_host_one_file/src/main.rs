@@ -522,40 +522,15 @@ REMEMBER:
 
 TOOL CALLING FORMAT:
 To call a tool, use this exact format:
+
+Let me call [tool_name_here]
 ```json
-{
-    "action": "tool_name",
-    "params": {
-        // tool-specific parameters
-    }
-}
+{{
+    params here
+}}
 ```
 
-Example tool calls:
-```json
-{
-    "action": "search_nodes",
-    "params": {
-        "query": "search terms"
-    }
-}
-```
-
-```json
-{
-    "action": "create_node",
-    "params": {
-        "name": "Node Name",
-        "description": "Node Description",
-        "content": "Node Content",
-        "parent_name": "Parent Node",
-        "relation": "relates_to",
-        "tags": ["tag1", "tag2"]
-    }
-}
-```
-
-ALWAYS USE THE EXACT JSON FORMAT SHOWN ABOVE!
+Use that format above!
 "####);
 
         prompt
