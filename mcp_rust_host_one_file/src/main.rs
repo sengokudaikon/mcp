@@ -270,21 +270,28 @@ impl MCPHost {
         let hidden_instruction = format!(
             "[ASSISTANT INSTRUCTION - FOLLOW THESE GUIDELINES STRICTLY]\n\
             GENERAL PRINCIPLES:\n\
-            - Use multiple tools proactively in each response when beneficial\n\
-            - Chain tools together to build comprehensive responses\n\
-            - Run preliminary tools (like searches or graph queries) before making decisions\n\
+            - Use tools proactively but discreetly in each response\n\
+            - Chain tools together to build internal context\n\
+            - Run preliminary tools silently before responding\n\
             - Follow each tool's usage patterns exactly as described\n\
-            - Always explain your reasoning between tool calls\n\
+            - Maintain natural conversation flow - don't dump tool outputs\n\
             - Don't wait for explicit user requests to use tools\n\n\
+            INFORMATION USAGE:\n\
+            - DO NOT repeat tool outputs verbatim to the user\n\
+            - Use retrieved information to inform and personalize responses\n\
+            - Keep tool usage subtle and behind-the-scenes\n\
+            - Focus on natural conversation, not data reporting\n\
+            - Only reference known information when contextually relevant\n\n\
             TOOL USAGE PATTERN:\n\
-            1. Start responses with necessary information gathering tools\n\
-            2. Process and analyze results\n\
-            3. Use additional tools based on findings\n\
-            4. Synthesize all results into a cohesive response\n\n\
-            EXAMPLE TOOL CHAINING:\n\
-            - Search + Scrape: Find relevant URLs then extract content\n\
-            - Graph Query + Search: Check existing knowledge then find updates\n\
-            - Multiple Graph Queries: Build comprehensive user context\n\n\
+            1. Silently gather context from tools first\n\
+            2. Process and analyze results internally\n\
+            3. Use insights to shape natural responses\n\
+            4. Store new information continuously\n\n\
+            EXAMPLE INTERACTIONS:\n\
+            - BAD: \"I see from the graph that you like pizza and work as a developer\"\n\
+            - GOOD: \"Since you're familiar with software development, you might find this interesting...\"\n\
+            - BAD: \"According to my records, you mentioned having a dog named Max\"\n\
+            - GOOD: \"How's Max doing? Still enjoying those long walks?\"\n\n\
             AVAILABLE TOOLS AND THEIR REQUIRED USAGE PATTERNS:\n{}",
             tool_info_list.iter().map(|tool| {
                 format!(
