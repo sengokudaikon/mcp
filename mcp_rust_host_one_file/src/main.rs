@@ -533,9 +533,9 @@ impl MCPHost {
     }
 
     async fn send_request(&self, server_name: &str, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
-        info!("\n=== Starting send_request ===");
-        info!("Server: {}", server_name);
-        info!("Request method: {}", request.method);
+        debug!("\n=== Starting send_request ===");
+        debug!("Server: {}", server_name);
+        debug!("Request method: {}", request.method);
         let request_str = serde_json::to_string(&request)? + "\n";
         debug!("DEBUG: Sending request: {}", request_str.trim());
         
@@ -624,10 +624,10 @@ impl MCPHost {
     }
 
     pub async fn call_tool(&self, server_name: &str, tool_name: &str, args: Value) -> Result<String> {
-        info!("call_tool started");
-        info!("Server: {}", server_name);
-        info!("Tool: {}", tool_name);
-        info!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
+        debug!("call_tool started");
+        debug!("Server: {}", server_name);
+        debug!("Tool: {}", tool_name);
+        debug!("Arguments: {}", serde_json::to_string_pretty(&args).unwrap_or_default());
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: RequestId::String(Uuid::new_v4().to_string()).into(),
@@ -684,7 +684,7 @@ impl MCPHost {
         const MAX_ITERATIONS: i32 = 10; // Increased from 5 to allow more tool calls
         
         while iteration < MAX_ITERATIONS {
-            info!("\nStarting iteration {} of response handling", iteration + 1);
+            debug!("\nStarting iteration {} of response handling", iteration + 1);
             
             // Try to find all tool calls in the current response
             let mut found_tool_call = false;
