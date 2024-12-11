@@ -24,5 +24,7 @@ html5ever = "0.29.0"
 html2text = "0.13.5"
 mime_guess = "2.0.5"
 thiserror = "2.0.5"
+petgraph = "0.6.4"
+chrono = { version = "0.4.31", features = ["serde"] }
 
 
