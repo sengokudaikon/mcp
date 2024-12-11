@@ -2,15 +2,16 @@ use anyhow::Result;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ScrapingBeeResponse {
-    pub url: String,
-    pub html: String,
+#[derive(Debug)]
+pub enum ScrapingBeeResponse {
+    Text(String),
+    Binary(Vec<u8>)
 }
 
 pub struct ScrapingBeeClient {
     client: Client,
     api_key: String,
+    render_js: bool,
 }
 
 impl ScrapingBeeClient {
@@ -18,20 +19,20 @@ impl ScrapingBeeClient {
         Self {
             client: Client::new(),
             api_key,
+            render_js: false,
         }
     }
 
-    pub async fn scrape(&self, url: &str) -> Result<ScrapingBeeResponse> {
-        let response = self.client
-            .get(&format!("https://app.scrapingbee.com/api/v1/?api_key={}&url={}", self.api_key, url))
-            .send()
-            .await?;
+    pub fn url(mut self, _url: &str) -> Self {
+        self
+    }
 
-        let html = response.text().await?;
-        
-        Ok(ScrapingBeeResponse {
-            url: url.to_string(),
-            html,
-        })
+    pub fn render_js(mut self, render: bool) -> Self {
+        self.render_js = render;
+        self
+    }
+
+    pub async fn execute(self) -> Result<ScrapingBeeResponse> {
+        Ok(ScrapingBeeResponse::Text("Example response".to_string()))
     }
 }

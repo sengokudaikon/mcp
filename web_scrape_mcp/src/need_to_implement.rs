@@ -59,8 +59,8 @@ impl DataNode {
 
 #[derive(Serialize, Deserialize)]
 struct SerializableGraph {
-    nodes: Vec<(NodeIndex, DataNode)>,
-    edges: Vec<(NodeIndex, NodeIndex, String)>
+    nodes: Vec<(usize, DataNode)>,
+    edges: Vec<(usize, usize, String)>
 }
 
 #[derive(Clone)]
