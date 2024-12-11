@@ -2,7 +2,7 @@ use html2text::from_read;
 use url::Url;
 
 pub fn extract_text_from_html(html: &str, url: Option<&str>) -> String {
-    let mut text = from_read(html.as_bytes(), 80);
+    let mut text = from_read(html.as_bytes(), 80).expect("Failed to parse HTML");
 
     // If URL provided, add it as reference
     if let Some(url_str) = url {
