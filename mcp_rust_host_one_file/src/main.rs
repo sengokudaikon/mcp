@@ -533,7 +533,7 @@ REMEMBER:
                 match tokio::time::timeout(
                     std::time::Duration::from_secs(10),
                     client.raw_builder()
-                        .model("gpt-4o")
+                        .model("chatgpt-4o-latest")
                         .system("Test message")
                         .user("Echo test")
                         .execute()
@@ -895,7 +895,7 @@ REMEMBER:
             }
             
             // Get next action from assistant with all accumulated context
-            let mut builder = client.raw_builder().model("gpt-4o");
+            let mut builder = client.raw_builder().model("chatgpt-4o-latest");
             for msg in &state.messages {
                 match msg.role {
                     Role::System => builder = builder.system(&msg.content),
@@ -985,7 +985,7 @@ REMEMBER:
 
                                 // Use OpenAI client if available
                                 if let Some(client) = &self.openai_client {
-                                    let mut builder = client.raw_builder().model("gpt-4o");
+                                    let mut builder = client.raw_builder().model("chatgpt-4o-latest");
                                 
                                     // Add all messages from conversation state
                                     for msg in &state.messages {
