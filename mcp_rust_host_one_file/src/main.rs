@@ -671,7 +671,6 @@ impl MCPHost {
         state: &mut ConversationState,
         client: &OpenAIClient,
     ) -> Result<()> {
-        println!("{}", conversation_state::format_chat_message(&Role::Assistant, response));
         state.add_assistant_message(response);
         
         // Initialize a loop for multiple tool calls
