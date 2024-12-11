@@ -2,7 +2,7 @@ use shared_protocol_objects::{Role, ToolInfo};
 use console::style;
 use serde_json;
 
-fn format_json_output(json_str: &str) -> String {
+pub fn format_json_output(json_str: &str) -> String {
     if let Ok(value) = serde_json::from_str::<serde_json::Value>(json_str) {
         format!("```json\n{}\n```", serde_json::to_string_pretty(&value).unwrap_or(json_str.to_string()))
     } else {
@@ -41,7 +41,7 @@ fn format_markdown(text: &str) -> String {
     formatted
 }
 
-fn format_tool_response(tool_name: &str, response: &str) -> String {
+pub fn format_tool_response(tool_name: &str, response: &str) -> String {
     let mut output = String::new();
     output.push_str(&format!("{}\n", style("Tool Response:").green().bold()));
     output.push_str(&format!("└─ {}\n", style(tool_name).yellow()));
@@ -54,7 +54,7 @@ fn format_tool_response(tool_name: &str, response: &str) -> String {
     output
 }
 
-fn format_chat_message(role: &Role, content: &str) -> String {
+pub fn format_chat_message(role: &Role, content: &str) -> String {
     let role_style = match role {
         Role::System => style("System").blue().bold(),
         Role::User => style("User").magenta().bold(),
