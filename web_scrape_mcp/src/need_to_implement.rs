@@ -691,6 +691,13 @@ pub async fn handle_graph_tool_call(
     graph_manager: &mut GraphManager,
     id: Option<Value>,
 ) -> Result<JsonRpcResponse> {
+    // Check if root exists before allowing non-root operations
+    if graph_manager.root.is_none() && params.arguments.get("action")
+        .and_then(Value::as_str) != Some("create_root") {
+        return Ok(error_response(id.clone(), INVALID_PARAMS,
+            "No root node exists in the graph. Please create a root node first using the create_root action.\n\
+            Example: { \"action\": \"create_root\", \"params\": { \"name\": \"knowledge_root\", ... } }"));
+    }
     
     let tool_info = graph_tool_info();
 
@@ -761,11 +768,15 @@ pub async fn handle_graph_tool_call(
             match (create_params.parent_name, create_params.relation) {
                 (None, _) => {
                     return Ok(error_response(id.clone(), INVALID_PARAMS,
-                        "parent_name is required for creating a non-root node. Use create_root action to create the root node."));
+                        "Missing required field 'parent_name' in params. For creating nodes, you must specify:\n\
+                        1. parent_name: The name of the existing parent node\n\
+                        2. relation: The type of relationship to the parent\n\
+                        Example: { \"parent_name\": \"daily_logs\", \"relation\": \"is_entry_for\" }"));
                 }
                 (Some(_), None) => {
                     return Ok(error_response(id.clone(), INVALID_PARAMS,
-                        "relation is required when creating a node. It describes how this node relates to its parent."));
+                        "Missing required field 'relation' in params. The relation field describes how this node \
+                        relates to its parent node. Example: \"is_entry_for\", \"describes\", \"documents\""));
                 }
                 (Some(parent_name), Some(relation)) => {
                     if let Some((parent_idx, _)) = graph_manager.get_node_by_name(&parent_name) {
