@@ -1,5 +1,7 @@
 mod need_to_implement;
+mod git_integration;
 use need_to_implement::{GraphManager, handle_graph_tool_call};
+use git_integration::{handle_git_tool_call, git_tool_info};
 use shared_protocol_objects::{
     ResourceInfo, ToolInfo, ServerCapabilities, Implementation, 
     InitializeResult, ClientCapabilities,
@@ -65,6 +67,7 @@ async fn main() {
             description: Some("An example text resource".into()),
         }],
         tools: vec![
+            git_tool_info(),
             ToolInfo {
                 name: BashExecutor::new().tool_info().name,
                 description: Some(BashExecutor::new().tool_info().description),
