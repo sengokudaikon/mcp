@@ -131,33 +131,50 @@ async fn main() {
             ToolInfo {
                 name: "graph_tool".into(),
                 description: Some(
-                    "ALWAYS RUN get_top_tags, get_tags_by_date, and get_most_connected NEAR THE START OF YOUR CHATS WITH THE USER AND KEEP THE GRAPH UP TO DATE AS BEST AS YOU CAN. THIS IS VERY IMPORTANT. \
-                    BEFORE ASKING THE USER QUESTIONS, SEARCH THE GRAPH USING search_nodes AND get_nodes_by_tag TO DISCOVER WHAT YOU ALREADY KNOW ABOUT THEM! \
-                    Stores and organizes information about the user in a knowledge graph. Use this to:\n\
-                    - Track user relationships and connections\n\
-                    - Record user preferences and interests\n\
-                    - Track important life events and milestones (birthdays, anniversaries, achievements)\n\
-                    - Document user's work and projects\n\
-                    - Keep track of user's goals and progress\n\
-                    - Maintain history of user interactions\n\
-                    - Map user's skill development and learning paths\n\
-                    - Track recurring patterns in user behavior\n\
-                    - Document user's decision-making history\n\
-                    - Store user's communication style preferences\n\
-                    - Track user's problem-solving approaches\n\
-                    - Map user's professional network\n\
-                    - Document user's preferred tools and workflows\n\
-                    - Store user's scheduling patterns and preferences\n\
-                    - Track user's information sources and trusted references\n\
-                    - Record significant dates (past and upcoming events)\n\
-                    - Monitor time-based patterns and routines\n\
+                    "PROACTIVE USAGE INSTRUCTIONS:\n\
+                    1. CONTINUOUSLY RECORD USER INFORMATION during conversations without explicit commands\n\
+                    2. CREATE NODES for any revealed:\n\
+                       - Personal details\n\
+                       - Preferences\n\
+                       - Experiences\n\
+                       - Opinions\n\
+                       - Goals\n\
+                       - Problems\n\
+                       - Relationships\n\
+                    3. UPDATE EXISTING NODES when new information emerges\n\
+                    4. CONNECT RELATED INFORMATION as it's discovered\n\n\
+                    ALWAYS RUN get_top_tags, get_tags_by_date, and get_most_connected NEAR THE START OF YOUR CHATS WITH THE USER AND KEEP THE GRAPH UP TO DATE AS BEST AS YOU CAN. THIS IS VERY IMPORTANT.\n\
+                    BEFORE ASKING THE USER QUESTIONS, SEARCH THE GRAPH USING search_nodes AND get_nodes_by_tag TO DISCOVER WHAT YOU ALREADY KNOW ABOUT THEM!\n\n\
+                    Core Functions:\n\
+                    - Track relationships and connections\n\
+                    - Record preferences and interests\n\
+                    - Log life events and milestones\n\
+                    - Document work and projects\n\
+                    - Monitor goals and progress\n\
+                    - Build interaction history\n\
+                    - Map skill development\n\
+                    - Note behavioral patterns\n\
+                    - Store decision history\n\
+                    - Record communication preferences\n\
+                    - Track problem-solving approaches\n\
+                    - Map professional networks\n\
+                    - Document tools and workflows\n\
+                    - Store scheduling patterns\n\
+                    - Track information sources\n\
+                    - Log important dates\n\
+                    - Monitor routines\n\n\
+                    USAGE PATTERN:\n\
+                    1. START CONVERSATIONS by checking existing knowledge\n\
+                    2. LISTEN ACTIVELY for new information\n\
+                    3. STORE INFORMATION IMMEDIATELY as it's shared\n\
+                    4. CONNECT new information to existing knowledge\n\
+                    5. USE stored information to personalize responses\n\n\
                     SEARCH STRATEGY:\n\
-                    1. Use search_nodes with relevant keywords to find related information\n\
-                    2. Use get_nodes_by_tag to find nodes with specific categories\n\
-                    3. Use get_children to explore connected information\n\
-                    4. Look for patterns using get_most_connected and get_top_tags\n\
-                    Any information relevant to understanding and assisting the user should be stored here \
-                    for future reference and relationship building."
+                    1. Use search_nodes with relevant keywords\n\
+                    2. Use get_nodes_by_tag for categorized info\n\
+                    3. Use get_children to explore connections\n\
+                    4. Use get_most_connected and get_top_tags for patterns\n\n\
+                    REMEMBER: Don't wait for commands - actively maintain the user's knowledge graph during natural conversation."
                 .into()),
                 input_schema: json!({
                     "type": "object",
