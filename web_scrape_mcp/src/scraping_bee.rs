@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT};
 use serde::{Deserialize, Serialize};
+use log::{info, warn, error, debug};
 
 #[derive(Debug)]
 pub enum ScrapingBeeResponse {
