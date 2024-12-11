@@ -498,17 +498,22 @@ impl MCPHost {
         state.add_user_message(&hidden_instruction);
 
         // Add startup reminder as system message
-        let startup_reminder = r#"[CRITICAL STARTUP INSTRUCTION]
-You MUST run these commands BEFORE responding to the user:
-1. graph_tool get_top_tags
-2. graph_tool get_tags_by_date
-3. graph_tool get_most_connected
-4. graph_tool search_nodes (for relevant context)
-5. graph_tool get_nodes_by_tag (for key categories)
-
-DO NOT PROCEED WITH USER INTERACTION UNTIL THESE ARE COMPLETE.
-This is a strict requirement, not a suggestion.
-"#;
+        let startup_reminder = format!(
+            "[CRITICAL STARTUP INSTRUCTION]\n\
+            You MUST run these commands BEFORE responding to the user:\n\
+            1. graph_tool get_top_tags\n\
+            2. graph_tool get_tags_by_date\n\
+            3. graph_tool get_most_connected\n\
+            4. graph_tool search_nodes (for relevant context)\n\
+            5. graph_tool get_nodes_by_tag (for key categories)\n\
+            \n\
+            Consider these example tool chains for guidance:\n\
+            {}\n\
+            \n\
+            DO NOT PROCEED WITH USER INTERACTION UNTIL THESE ARE COMPLETE.\n\
+            This is a strict requirement, not a suggestion.",
+            tool_chains.get_examples(Some(2)) // Show 2 relevant examples
+        );
 
         state.add_system_message(startup_reminder);
 
