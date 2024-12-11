@@ -4,6 +4,43 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::fs;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Deserialize, Serialize)]
+struct ToolChain {
+    title: String,
+    steps: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+struct ToolChainLibrary(Vec<ToolChain>);
+
+impl ToolChainLibrary {
+    fn load() -> Result<Self> {
+        let chains_json = include_str!("tool_chaining.json");
+        serde_json::from_str(chains_json).map_err(|e| anyhow!("Failed to parse tool chains: {}", e))
+    }
+
+    fn get_examples(&self, limit: Option<usize>) -> String {
+        let chains = match limit {
+            Some(n) => self.0.iter().take(n),
+            None => self.0.iter()
+        };
+
+        chains.map(|chain| {
+            format!(
+                "Example Workflow: {}\nSteps:\n{}\n",
+                style(&chain.title).cyan().bold(),
+                chain.steps.iter()
+                    .enumerate()
+                    .map(|(i, step)| format!("{}. {}", i + 1, step))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n---\n\n")
+    }
+}
 use log::info;
 use tokio::time::Duration;
 
@@ -252,6 +289,12 @@ impl MCPHost {
         // Fetch tools from the server
         let tool_info_list = self.list_server_tools(server_name).await?;
 
+        // Load tool chain examples
+        let tool_chains = ToolChainLibrary::load().unwrap_or_else(|e| {
+            warn!("Failed to load tool chains: {}. Using empty library.", e);
+            ToolChainLibrary(vec![])
+        });
+
         // Convert our tool list to a JSON structure
         let tools_json: Vec<serde_json::Value> = tool_info_list.iter().map(|t| {
             json!({
@@ -261,7 +304,17 @@ impl MCPHost {
             })
         }).collect();
 
-        let system_prompt = self.generate_system_prompt(&tools_json);
+        // Generate system prompt with tool chains
+        let system_prompt = format!(
+            "{}\n\nTOOL CHAINING EXAMPLES:\n{}\n\nREMEMBER:\n\
+            1. Always use proper JSON-RPC format for tool calls\n\
+            2. Chain tools together when appropriate\n\
+            3. Consider the examples above when planning tool usage\n\
+            4. Maintain context between tool calls\n\
+            5. Handle tool responses appropriately",
+            self.generate_system_prompt(&tools_json),
+            tool_chains.get_examples(Some(5)) // Show 5 examples by default
+        );
 
         // Create the conversation state
         let mut state = ConversationState::new(system_prompt, tool_info_list.clone());
@@ -269,6 +322,9 @@ impl MCPHost {
         // Create a hidden instruction message that combines static guidance with dynamic tool info
         let hidden_instruction = format!(
             "[CRITICAL INSTRUCTION - FOLLOW EXACTLY]\n\
+            When using tools, follow these patterns from the examples:\n\
+            {}\n\
+            \n\
             PROACTIVE REQUIREMENTS:\n\
             1. Create knowledge graph nodes for EVERY:\n\
                - Statement\n\
@@ -326,7 +382,11 @@ impl MCPHost {
             AVAILABLE TOOLS AND THEIR REQUIRED USAGE PATTERNS:\n\
             {}\n\
             \n\
+            EXAMPLE TOOL CHAINS:\n\
+            {}\n\
+            \n\
             CRITICAL: NEVER WAIT FOR PERMISSION TO CREATE NODES OR USE TOOLS!",
+            tool_chains.get_examples(Some(3)), // Show 3 examples in the hidden instruction
             tool_info_list.iter().map(|tool| {
                 format!(
                     "Tool: {}\n\
