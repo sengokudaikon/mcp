@@ -68,9 +68,15 @@ impl ScrapingBeeClient {
         let request = self.client
             .post(&self.base_url)
             .headers(headers)
-            .query(&[("api_key", &self.api_key)])
-            .query(&[("url", &request_body.url)])
-            .query(&[("render_js", &request_body.render_js.to_string())]);
+            .query(&[
+                ("api_key", &self.api_key),
+                ("url", &request_body.url),
+                ("render_js", &request_body.render_js.to_string()),
+                ("premium_proxy", "true"),  // Use premium proxy for better success rate
+                ("stealth_proxy", "true"),  // Enable stealth mode to avoid detection
+                ("country_code", "us"),     // Route through US proxies
+                ("block_resources", "false") // Load all page resources
+            ]);
 
         // Clone and build request for logging
         debug!("Full request URL: {}", request.try_clone().unwrap().build()?.url());
